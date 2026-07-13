@@ -357,6 +357,24 @@
       line-height: 1.6;
     }
 
+    .result-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .result-actions button {
+      padding: 11px 16px;
+      font-size: 14px;
+    }
+
+    .result-actions button.active {
+      background: #1f2933;
+      color: #fff;
+      border-color: #1f2933;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -372,6 +390,7 @@
     }
 
     .thumb {
+      position: relative;
       background:
         linear-gradient(45deg, rgba(31, 41, 51, 0.05) 25%, transparent 25%),
         linear-gradient(-45deg, rgba(31, 41, 51, 0.05) 25%, transparent 25%),
@@ -392,6 +411,70 @@
       background: #fff;
       border-radius: 10px;
       box-shadow: 0 8px 20px rgba(31, 41, 51, 0.12);
+    }
+
+    .delete-thumb {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 41, 51, 0.18);
+      background: rgba(255, 255, 255, 0.92);
+      color: #9f1239;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(31, 41, 51, 0.12);
+    }
+
+    .delete-thumb:hover {
+      background: #fff0f3;
+      transform: translateY(-1px);
+    }
+
+    .select-thumb {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 41, 51, 0.25);
+      background: rgba(255, 255, 255, 0.95);
+      color: #1f2933;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.14s ease;
+    }
+
+    .grid.select-mode .select-thumb {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .page-card.selected {
+      border-color: rgba(200, 169, 106, 0.9);
+      box-shadow: 0 18px 42px rgba(31, 41, 51, 0.16);
+    }
+
+    .page-card.selected .select-thumb {
+      opacity: 1;
+      pointer-events: auto;
+      background: #1f2933;
+      color: #fff;
+      border-color: #1f2933;
     }
 
     .page-meta {
@@ -554,6 +637,11 @@
           <h2>轉換結果</h2>
           <p id="resultNote">每一頁都會顯示成可下載的圖片。</p>
         </div>
+        <div class="result-actions">
+          <button class="secondary" id="selectModeBtn" disabled>批量選取</button>
+          <button class="secondary" id="bulkDeleteBtn" disabled>刪除已選</button>
+          <button class="secondary" id="downloadAllBtn" disabled>下載所有圖片</button>
+        </div>
       </div>
       <div class="grid" id="previewGrid"></div>
     </section>
@@ -581,11 +669,18 @@
     const statusCount = document.getElementById('statusCount');
     const progressBar = document.getElementById('progressBar');
     const resultSection = document.getElementById('resultSection');
+    const resultNote = document.getElementById('resultNote');
     const previewGrid = document.getElementById('previewGrid');
     const message = document.getElementById('message');
+    const selectModeBtn = document.getElementById('selectModeBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
 
     let selectedFile = null;
     let convertedFiles = [];
+    let isSelectMode = false;
+    const selectedIds = new Set();
+    const STORAGE_KEY = 'pdfImageConverterRecordsV1';
 
     if (window.pdfjsLib) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -621,12 +716,146 @@
       });
     }
 
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('無法讀取圖片資料'));
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function dataURLToBlob(dataURL) {
+      const [header, base64] = String(dataURL || '').split(',');
+      if (!header || !base64) return null;
+      const mime = (header.match(/data:(.*?);base64/) || [])[1] || 'application/octet-stream';
+      const binary = atob(base64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
+    }
+
+    function updateResultState() {
+      const hasItems = convertedFiles.length > 0;
+      resultSection.classList.toggle('hidden', !hasItems);
+      zipBtn.disabled = !hasItems;
+      downloadAllBtn.disabled = !hasItems;
+      selectModeBtn.disabled = !hasItems;
+      bulkDeleteBtn.disabled = !hasItems || selectedIds.size === 0;
+      clearBtn.disabled = !hasItems && !selectedFile;
+      resultNote.textContent = hasItems
+        ? `共 ${convertedFiles.length} 張，可單張下載、刪除，或一次下載全部。${isSelectMode ? ` 已選取 ${selectedIds.size} 張。` : ''}`
+        : '每一頁都會顯示成可下載的圖片。';
+    }
+
+    function setSelectMode(enabled) {
+      isSelectMode = Boolean(enabled);
+      if (!isSelectMode) selectedIds.clear();
+      previewGrid.classList.toggle('select-mode', isSelectMode);
+      selectModeBtn.classList.toggle('active', isSelectMode);
+      selectModeBtn.textContent = isSelectMode ? '取消選取' : '批量選取';
+      previewGrid.querySelectorAll('.page-card').forEach(card => {
+        const id = card.dataset.id;
+        card.classList.toggle('selected', isSelectMode && selectedIds.has(id));
+      });
+      updateResultState();
+    }
+
+    function toggleCardSelection(id, card) {
+      if (!isSelectMode) return;
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
+      card.classList.toggle('selected', selectedIds.has(id));
+      updateResultState();
+    }
+
+    function saveConvertedFiles() {
+      try {
+        const records = convertedFiles.map(item => ({
+          id: item.id,
+          pageNumber: item.pageNumber,
+          filename: item.filename,
+          width: item.width,
+          height: item.height,
+          size: item.size,
+          dataUrl: item.dataUrl || item.url
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      } catch (error) {
+        console.warn('saveConvertedFiles failed', error);
+      }
+    }
+
+    function removePreviewItems(ids) {
+      const removeSet = new Set(ids);
+      if (!removeSet.size) return;
+
+      convertedFiles.forEach(item => {
+        if (removeSet.has(item.id) && item.url && !String(item.url).startsWith('data:')) {
+          URL.revokeObjectURL(item.url);
+        }
+      });
+
+      convertedFiles = convertedFiles.filter(item => !removeSet.has(item.id));
+      removeSet.forEach(id => selectedIds.delete(id));
+
+      previewGrid.querySelectorAll('.page-card').forEach(card => {
+        if (removeSet.has(card.dataset.id)) card.remove();
+      });
+
+      if (!convertedFiles.length && isSelectMode) {
+        setSelectMode(false);
+      }
+
+      saveConvertedFiles();
+      updateResultState();
+    }
+
+    function restoreConvertedFiles() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const records = JSON.parse(raw);
+        if (!Array.isArray(records) || !records.length) return;
+        convertedFiles = records
+          .filter(item => item && typeof item.dataUrl === 'string' && item.dataUrl.startsWith('data:'))
+          .map((item, index) => ({
+            id: item.id || `restored-${Date.now()}-${index}`,
+            pageNumber: Number(item.pageNumber) || index + 1,
+            filename: item.filename || `pdf-page-${index + 1}.png`,
+            blob: null,
+            dataUrl: item.dataUrl,
+            url: item.dataUrl,
+            width: Number(item.width) || 0,
+            height: Number(item.height) || 0,
+            size: Number(item.size) || 0
+          }));
+
+        previewGrid.innerHTML = '';
+        selectedIds.clear();
+        isSelectMode = false;
+        previewGrid.classList.remove('select-mode');
+        convertedFiles.forEach(addPreviewCard);
+        updateResultState();
+      } catch (error) {
+        console.warn('restoreConvertedFiles failed', error);
+      }
+    }
+
     function clearResults() {
-      convertedFiles.forEach(item => URL.revokeObjectURL(item.url));
+      convertedFiles.forEach(item => {
+        if (item.url && !String(item.url).startsWith('data:')) {
+          URL.revokeObjectURL(item.url);
+        }
+      });
       convertedFiles = [];
+      selectedIds.clear();
+      isSelectMode = false;
+      previewGrid.classList.remove('select-mode');
       previewGrid.innerHTML = '';
-      resultSection.classList.add('hidden');
-      zipBtn.disabled = true;
+      localStorage.removeItem(STORAGE_KEY);
+      updateResultState();
     }
 
     function resetAll() {
@@ -695,10 +924,12 @@
       setMessage('');
       clearResults();
       statusPanel.classList.remove('hidden');
-      resultSection.classList.remove('hidden');
 
       convertBtn.disabled = true;
       zipBtn.disabled = true;
+      selectModeBtn.disabled = true;
+      bulkDeleteBtn.disabled = true;
+      downloadAllBtn.disabled = true;
 
       try {
         const arrayBuffer = await selectedFile.arrayBuffer();
@@ -734,13 +965,16 @@
 
           const blob = await canvasToBlob(canvas, mimeType, quality);
           const url = URL.createObjectURL(blob);
+          const dataUrl = await blobToDataURL(blob);
           const pageLabel = String(pageNumber).padStart(String(totalPages).length, '0');
           const filename = `${prefix}-${pageLabel}.${extension}`;
 
           convertedFiles.push({
+            id: `item-${Date.now()}-${pageNumber}`,
             pageNumber,
             filename,
             blob,
+            dataUrl,
             url,
             width: canvas.width,
             height: canvas.height,
@@ -758,7 +992,8 @@
         }
 
         setProgress(totalPages, totalPages, `轉換完成，共產生 ${totalPages} 張圖片`);
-        zipBtn.disabled = convertedFiles.length === 0;
+        saveConvertedFiles();
+        updateResultState();
       } catch (error) {
         console.error(error);
         setMessage(`轉換失敗：${error.message || '可能是加密 PDF、檔案損毀，或瀏覽器記憶體不足。'}`);
@@ -770,6 +1005,7 @@
     function addPreviewCard(item) {
       const card = document.createElement('article');
       card.className = 'page-card';
+      card.dataset.id = item.id;
 
       const thumb = document.createElement('div');
       thumb.className = 'thumb';
@@ -777,6 +1013,34 @@
       const image = document.createElement('img');
       image.src = item.url;
       image.alt = `第 ${item.pageNumber} 頁預覽`;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'delete-thumb';
+      removeBtn.textContent = 'X';
+      removeBtn.title = `刪除第 ${item.pageNumber} 頁`;
+      removeBtn.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const ok = window.confirm(`確定要刪除第 ${item.pageNumber} 頁嗎？`);
+        if (!ok) return;
+        removePreviewItems([item.id]);
+      });
+
+      const selectBtn = document.createElement('button');
+      selectBtn.type = 'button';
+      selectBtn.className = 'select-thumb';
+      selectBtn.textContent = '✓';
+      selectBtn.title = `選取第 ${item.pageNumber} 頁`;
+      selectBtn.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isSelectMode) setSelectMode(true);
+        toggleCardSelection(item.id, card);
+      });
+
+      thumb.appendChild(selectBtn);
+      thumb.appendChild(removeBtn);
       thumb.appendChild(image);
 
       const meta = document.createElement('div');
@@ -798,10 +1062,52 @@
       meta.appendChild(info);
       meta.appendChild(download);
 
+      card.addEventListener('click', event => {
+        if (!isSelectMode) return;
+        if (event.target.closest('a, button')) return;
+        toggleCardSelection(item.id, card);
+      });
+
       card.appendChild(thumb);
       card.appendChild(meta);
       previewGrid.appendChild(card);
     }
+
+    selectModeBtn.addEventListener('click', () => {
+      if (!convertedFiles.length) return;
+      setSelectMode(!isSelectMode);
+    });
+
+    bulkDeleteBtn.addEventListener('click', () => {
+      if (!selectedIds.size) return;
+      const count = selectedIds.size;
+      const ok = window.confirm(`確定要刪除已選取的 ${count} 張圖片嗎？`);
+      if (!ok) return;
+      removePreviewItems([...selectedIds]);
+      setSelectMode(false);
+    });
+
+    downloadAllBtn.addEventListener('click', async () => {
+      if (!convertedFiles.length) return;
+      downloadAllBtn.disabled = true;
+      const originalText = downloadAllBtn.textContent;
+      downloadAllBtn.textContent = '下載中...';
+
+      try {
+        for (const item of convertedFiles) {
+          const anchor = document.createElement('a');
+          anchor.href = item.url;
+          anchor.download = item.filename;
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          await new Promise(resolve => setTimeout(resolve, 120));
+        }
+      } finally {
+        downloadAllBtn.textContent = originalText;
+        downloadAllBtn.disabled = false;
+      }
+    });
 
     zipBtn.addEventListener('click', async () => {
       if (!convertedFiles.length) return;
@@ -813,7 +1119,8 @@
       try {
         const zip = new JSZip();
         convertedFiles.forEach(item => {
-          zip.file(item.filename, item.blob);
+          const blob = item.blob || dataURLToBlob(item.dataUrl || item.url);
+          if (blob) zip.file(item.filename, blob);
         });
 
         const zipBlob = await zip.generateAsync({ type: 'blob' }, metadata => {
@@ -844,6 +1151,9 @@
     });
 
     clearBtn.addEventListener('click', resetAll);
+
+    restoreConvertedFiles();
+    updateResultState();
   </script>
 </body>
 </html>
