@@ -507,6 +507,51 @@
       display: none;
     }
 
+    .save-modal {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(20, 28, 36, 0.48);
+      z-index: 50;
+      padding: 20px;
+    }
+
+    .save-modal-card {
+      width: min(420px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fff;
+      box-shadow: 0 20px 56px rgba(31, 41, 51, 0.24);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .save-modal-card h3 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .save-modal-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .save-modal-actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .save-modal-actions button {
+      width: 100%;
+      justify-content: center;
+    }
+
     footer {
       margin-top: 42px;
       color: var(--muted);
@@ -651,8 +696,20 @@
     </footer>
   </main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <div id="appleSaveModal" class="save-modal hidden" role="dialog" aria-modal="true" aria-labelledby="appleSaveTitle">
+    <div class="save-modal-card">
+      <h3 id="appleSaveTitle">選擇儲存方式</h3>
+      <p id="appleSaveHint">請選擇要下載到檔案，或透過分享面板存到相簿 App。</p>
+      <div class="save-modal-actions">
+        <button type="button" class="secondary" id="saveToFilesBtn">下載到檔案</button>
+        <button type="button" class="primary" id="saveToPhotosBtn">存到相簿 App</button>
+        <button type="button" class="secondary" id="cancelAppleSaveBtn">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./libs/pdf.min.js"></script>
+  <script src="./libs/jszip.min.js"></script>
   <script>
     const input = document.getElementById('pdfInput');
     const dropzone = document.getElementById('dropzone');
@@ -675,15 +732,31 @@
     const selectModeBtn = document.getElementById('selectModeBtn');
     const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const appleSaveModal = document.getElementById('appleSaveModal');
+    const appleSaveHint = document.getElementById('appleSaveHint');
+    const saveToFilesBtn = document.getElementById('saveToFilesBtn');
+    const saveToPhotosBtn = document.getElementById('saveToPhotosBtn');
+    const cancelAppleSaveBtn = document.getElementById('cancelAppleSaveBtn');
 
     let selectedFile = null;
     let convertedFiles = [];
     let isSelectMode = false;
     const selectedIds = new Set();
     const STORAGE_KEY = 'pdfImageConverterRecordsV1';
+    let appleSaveChoiceResolver = null;
+
+    const isAppleDevice = (() => {
+      const ua = navigator.userAgent || '';
+      const platform = navigator.platform || '';
+      const touchMac = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+      return /iPad|iPhone|iPod|Macintosh|Mac OS X/i.test(ua) || /Mac/i.test(platform) || touchMac;
+    })();
+
+    const isIOSDevice = /iPad|iPhone|iPod/i.test(navigator.userAgent || '') ||
+      ((navigator.platform || '') === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     if (window.pdfjsLib) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      pdfjsLib.GlobalWorkerOptions.workerSrc = './libs/pdf.worker.min.js';
     }
 
     function setMessage(text) {
@@ -734,6 +807,89 @@
       const bytes = new Uint8Array(len);
       for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
       return new Blob([bytes], { type: mime });
+    }
+
+    function getItemBlob(item) {
+      return item.blob || dataURLToBlob(item.dataUrl || item.url);
+    }
+
+    function triggerFileDownload(item) {
+      const anchor = document.createElement('a');
+      anchor.href = item.url;
+      anchor.download = item.filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    }
+
+    function openImageForManualPhotoSave(item) {
+      const win = window.open(item.url, '_blank', 'noopener');
+      if (!win) {
+        setMessage('瀏覽器擋下彈出視窗，請允許彈窗後再試一次。');
+        return;
+      }
+      setMessage(isIOSDevice
+        ? '已開啟圖片，請長按圖片並選擇「儲存到照片」。'
+        : '已開啟圖片，請使用分享選單存到照片 App。');
+    }
+
+    function openAppleSaveChoice(count) {
+      if (!isAppleDevice) return Promise.resolve('files');
+
+      appleSaveHint.textContent = count > 1
+        ? `目前有 ${count} 張圖片。可下載到檔案，或嘗試用分享面板存到相簿 App。`
+        : '可下載到檔案，或用分享面板直接存到相簿 App。';
+
+      appleSaveModal.classList.remove('hidden');
+
+      return new Promise(resolve => {
+        appleSaveChoiceResolver = resolve;
+      });
+    }
+
+    function closeAppleSaveChoice(choice) {
+      appleSaveModal.classList.add('hidden');
+      if (appleSaveChoiceResolver) {
+        appleSaveChoiceResolver(choice);
+        appleSaveChoiceResolver = null;
+      }
+    }
+
+    async function shareItemsToPhotos(items) {
+      const shareApi = navigator.share;
+      const canShareApi = navigator.canShare;
+      if (!shareApi || !canShareApi) {
+        openImageForManualPhotoSave(items[0]);
+        return;
+      }
+
+      const files = items
+        .map(item => {
+          const blob = getItemBlob(item);
+          if (!blob) return null;
+          return new File([blob], item.filename, { type: blob.type || 'image/png' });
+        })
+        .filter(Boolean);
+
+      if (!files.length || !canShareApi.call(navigator, { files })) {
+        openImageForManualPhotoSave(items[0]);
+        return;
+      }
+
+      try {
+        // Keep payload minimal for iOS so Photos-related targets are more likely to appear.
+        await shareApi.call(navigator, {
+          files,
+          title: files.length > 1 ? `共 ${files.length} 張圖片` : files[0].name
+        });
+      } catch (error) {
+        if (error && error.name === 'AbortError') return;
+        openImageForManualPhotoSave(items[0]);
+      }
+
+      if (!isIOSDevice) {
+        setMessage('若分享選單未出現「照片」，可在分享視窗點「編輯延伸功能」把「照片」加入。');
+      }
     }
 
     function updateResultState() {
@@ -1057,6 +1213,18 @@
       download.download = item.filename;
       download.className = 'button-link';
       download.textContent = '下載這張圖片';
+      download.addEventListener('click', async event => {
+        if (!isAppleDevice) return;
+        event.preventDefault();
+        const mode = await openAppleSaveChoice(1);
+        if (mode === 'files') {
+          triggerFileDownload(item);
+          return;
+        }
+        if (mode === 'photos') {
+          await shareItemsToPhotos([item]);
+        }
+      });
 
       meta.appendChild(title);
       meta.appendChild(info);
@@ -1078,6 +1246,14 @@
       setSelectMode(!isSelectMode);
     });
 
+    appleSaveModal.addEventListener('click', event => {
+      if (event.target === appleSaveModal) closeAppleSaveChoice('cancel');
+    });
+
+    saveToFilesBtn.addEventListener('click', () => closeAppleSaveChoice('files'));
+    saveToPhotosBtn.addEventListener('click', () => closeAppleSaveChoice('photos'));
+    cancelAppleSaveBtn.addEventListener('click', () => closeAppleSaveChoice('cancel'));
+
     bulkDeleteBtn.addEventListener('click', () => {
       if (!selectedIds.size) return;
       const count = selectedIds.size;
@@ -1094,13 +1270,19 @@
       downloadAllBtn.textContent = '下載中...';
 
       try {
+        let mode = 'files';
+        if (isAppleDevice) {
+          mode = await openAppleSaveChoice(convertedFiles.length);
+          if (mode === 'cancel') return;
+        }
+
+        if (mode === 'photos') {
+          await shareItemsToPhotos(convertedFiles);
+          return;
+        }
+
         for (const item of convertedFiles) {
-          const anchor = document.createElement('a');
-          anchor.href = item.url;
-          anchor.download = item.filename;
-          document.body.appendChild(anchor);
-          anchor.click();
-          anchor.remove();
+          triggerFileDownload(item);
           await new Promise(resolve => setTimeout(resolve, 120));
         }
       } finally {
