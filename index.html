@@ -685,6 +685,7 @@
         <div class="result-actions">
           <button class="secondary" id="selectModeBtn" disabled>批量選取</button>
           <button class="secondary" id="bulkDeleteBtn" disabled>刪除已選</button>
+          <button class="secondary" id="copyAllBtn" disabled>複製所有圖片</button>
           <button class="secondary" id="downloadAllBtn" disabled>下載所有圖片</button>
         </div>
       </div>
@@ -731,6 +732,7 @@
     const message = document.getElementById('message');
     const selectModeBtn = document.getElementById('selectModeBtn');
     const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const copyAllBtn = document.getElementById('copyAllBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
     const appleSaveModal = document.getElementById('appleSaveModal');
     const appleSaveHint = document.getElementById('appleSaveHint');
@@ -822,6 +824,86 @@
       anchor.remove();
     }
 
+    function canUseClipboardWrite() {
+      return window.isSecureContext &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.write === 'function' &&
+        typeof window.ClipboardItem === 'function';
+    }
+
+    function canUseClipboardText() {
+      return window.isSecureContext &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === 'function';
+    }
+
+    function buildClipboardHtml(items) {
+      const rows = items.map(item => {
+        const src = item.dataUrl || item.url;
+        return `<figure style="margin:0 0 14px;"><img src="${src}" alt="第 ${item.pageNumber} 頁" style="max-width:100%;height:auto;display:block;border:0;"><figcaption style="font-size:12px;color:#4b5563;margin-top:4px;">第 ${item.pageNumber} 頁</figcaption></figure>`;
+      }).join('');
+      return `<div>${rows}</div>`;
+    }
+
+    async function copyItemsToClipboard(items) {
+      const validItems = items
+        .map(item => ({ item, blob: getItemBlob(item) }))
+        .filter(entry => entry.blob && /^image\//.test(entry.blob.type));
+
+      if (!validItems.length) {
+        setMessage('找不到可複製的圖片資料。');
+        return false;
+      }
+
+      if (canUseClipboardWrite()) {
+        try {
+          if (validItems.length === 1) {
+            const blob = validItems[0].blob;
+            await navigator.clipboard.write([
+              new ClipboardItem({ [blob.type]: blob })
+            ]);
+          } else {
+            const html = buildClipboardHtml(validItems.map(entry => entry.item));
+            const plain = validItems
+              .map(entry => `第 ${entry.item.pageNumber} 頁：${entry.item.filename}`)
+              .join('\n');
+
+            await navigator.clipboard.write([
+              new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([plain], { type: 'text/plain' })
+              })
+            ]);
+          }
+
+          setMessage(validItems.length > 1
+            ? `已複製 ${validItems.length} 張圖片內容到剪貼簿（支援貼上 HTML 的 App 可一次貼上多張）。`
+            : '已複製圖片到剪貼簿。');
+          return true;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      if (canUseClipboardText()) {
+        try {
+          const fallbackText = validItems
+            .map(entry => entry.item.dataUrl || entry.item.url)
+            .join('\n\n');
+          await navigator.clipboard.writeText(fallbackText);
+          setMessage(validItems.length > 1
+            ? '瀏覽器不支援多張圖片原生複製，已改為複製多張圖片資料網址（Data URL）。'
+            : '瀏覽器不支援原生圖片複製，已改為複製圖片資料網址（Data URL）。');
+          return true;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      setMessage('複製失敗：請改用 HTTPS/localhost 開啟頁面，並允許剪貼簿權限。');
+      return false;
+    }
+
     function openImageForManualPhotoSave(item) {
       const win = window.open(item.url, '_blank', 'noopener');
       if (!win) {
@@ -897,11 +979,12 @@
       resultSection.classList.toggle('hidden', !hasItems);
       zipBtn.disabled = !hasItems;
       downloadAllBtn.disabled = !hasItems;
+      copyAllBtn.disabled = !hasItems;
       selectModeBtn.disabled = !hasItems;
       bulkDeleteBtn.disabled = !hasItems || selectedIds.size === 0;
       clearBtn.disabled = !hasItems && !selectedFile;
       resultNote.textContent = hasItems
-        ? `共 ${convertedFiles.length} 張，可單張下載、刪除，或一次下載全部。${isSelectMode ? ` 已選取 ${selectedIds.size} 張。` : ''}`
+        ? `共 ${convertedFiles.length} 張，可單張下載、複製、刪除，或一次下載／複製全部。${isSelectMode ? ` 已選取 ${selectedIds.size} 張。` : ''}`
         : '每一頁都會顯示成可下載的圖片。';
     }
 
@@ -1226,8 +1309,27 @@
         }
       });
 
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'secondary';
+      copyBtn.textContent = '複製這張圖片';
+      copyBtn.addEventListener('click', async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const originalText = copyBtn.textContent;
+        copyBtn.disabled = true;
+        copyBtn.textContent = '複製中...';
+        try {
+          await copyItemsToClipboard([item]);
+        } finally {
+          copyBtn.textContent = originalText;
+          copyBtn.disabled = false;
+        }
+      });
+
       meta.appendChild(title);
       meta.appendChild(info);
+      meta.appendChild(copyBtn);
       meta.appendChild(download);
 
       card.addEventListener('click', event => {
@@ -1261,6 +1363,20 @@
       if (!ok) return;
       removePreviewItems([...selectedIds]);
       setSelectMode(false);
+    });
+
+    copyAllBtn.addEventListener('click', async () => {
+      if (!convertedFiles.length) return;
+      copyAllBtn.disabled = true;
+      const originalText = copyAllBtn.textContent;
+      copyAllBtn.textContent = '複製中...';
+
+      try {
+        await copyItemsToClipboard(convertedFiles);
+      } finally {
+        copyAllBtn.textContent = originalText;
+        copyAllBtn.disabled = false;
+      }
     });
 
     downloadAllBtn.addEventListener('click', async () => {
