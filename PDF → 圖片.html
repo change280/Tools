@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF 轉圖片下載工具</title>
+  <style>
+    :root {
+      --bg: #f5f2ec;
+      --card: rgba(255, 255, 255, 0.82);
+      --card-strong: #ffffff;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --line: rgba(31, 41, 51, 0.12);
+      --accent: #1f2933;
+      --accent-2: #c8a96a;
+      --shadow: 0 24px 70px rgba(31, 41, 51, 0.12);
+      --radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(200, 169, 106, 0.22), transparent 34rem),
+        radial-gradient(circle at right 20%, rgba(31, 41, 51, 0.08), transparent 30rem),
+        linear-gradient(135deg, #faf8f3 0%, var(--bg) 48%, #ebe5d9 100%);
+    }
+
+    .noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.25;
+      background-image:
+        linear-gradient(rgba(31, 41, 51, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(31, 41, 51, 0.04) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, #000, transparent 85%);
+    }
+
+    .wrap {
+      position: relative;
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 56px 0 72px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 26px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+
+    .hero-main,
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--card);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      border-radius: var(--radius);
+    }
+
+    .hero-main {
+      position: relative;
+      overflow: hidden;
+      padding: 42px;
+    }
+
+    .hero-main::after {
+      content: "PDF";
+      position: absolute;
+      right: -12px;
+      bottom: -42px;
+      font-size: 164px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.08em;
+      color: rgba(31, 41, 51, 0.045);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid rgba(200, 169, 106, 0.5);
+      border-radius: 999px;
+      color: #7a642e;
+      background: rgba(255, 255, 255, 0.52);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 0 6px rgba(200, 169, 106, 0.16);
+    }
+
+    h1 {
+      position: relative;
+      z-index: 1;
+      margin: 22px 0 14px;
+      font-size: clamp(34px, 5vw, 64px);
+      line-height: 1.03;
+      letter-spacing: -0.065em;
+    }
+
+    .lead {
+      position: relative;
+      z-index: 1;
+      max-width: 620px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.8;
+    }
+
+    .privacy {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-top: 26px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(31, 41, 51, 0.05);
+      color: #4b5563;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .privacy strong {
+      color: var(--text);
+    }
+
+    .panel {
+      padding: 26px;
+    }
+
+    .dropzone {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 268px;
+      padding: 24px;
+      border: 1.5px dashed rgba(31, 41, 51, 0.22);
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.38)),
+        radial-gradient(circle at top, rgba(200, 169, 106, 0.16), transparent 62%);
+      transition: 0.2s ease;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent-2);
+      transform: translateY(-2px);
+      box-shadow: 0 18px 42px rgba(31, 41, 51, 0.12);
+    }
+
+    .dropzone input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-icon {
+      width: 74px;
+      height: 74px;
+      margin: 0 auto 16px;
+      border-radius: 22px;
+      display: grid;
+      place-items: center;
+      background: #1f2933;
+      color: white;
+      box-shadow: 0 16px 32px rgba(31, 41, 51, 0.2);
+    }
+
+    .upload-icon svg {
+      width: 34px;
+      height: 34px;
+    }
+
+    .drop-title {
+      margin: 0 0 8px;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .drop-note {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .file-name {
+      margin-top: 16px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(31, 41, 51, 0.06);
+      color: #374151;
+      font-size: 13px;
+      word-break: break-all;
+      display: none;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    label.control {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    select,
+    input[type="number"] {
+      width: 100%;
+      appearance: none;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 13px 14px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    button,
+    .button-link {
+      border: 0;
+      border-radius: 999px;
+      padding: 13px 18px;
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+      transition: 0.18s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 16px 32px rgba(31, 41, 51, 0.2);
+    }
+
+    button.secondary,
+    .button-link {
+      background: rgba(255, 255, 255, 0.75);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    button:not(:disabled):hover,
+    .button-link:hover {
+      transform: translateY(-1px);
+    }
+
+    .status-panel {
+      margin-top: 24px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.66);
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+      color: #374151;
+      font-weight: 800;
+    }
+
+    .status-line span:last-child {
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .progress {
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(31, 41, 51, 0.08);
+    }
+
+    .progress > div {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.2s ease;
+    }
+
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: end;
+      margin: 34px 0 16px;
+    }
+
+    .result-head h2 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: -0.045em;
+    }
+
+    .result-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .result-actions button {
+      padding: 11px 16px;
+      font-size: 14px;
+    }
+
+    .result-actions button.active {
+      background: #1f2933;
+      color: #fff;
+      border-color: #1f2933;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 18px;
+    }
+
+    .page-card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      background: var(--card-strong);
+      box-shadow: 0 16px 40px rgba(31, 41, 51, 0.08);
+    }
+
+    .thumb {
+      position: relative;
+      background:
+        linear-gradient(45deg, rgba(31, 41, 51, 0.05) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(31, 41, 51, 0.05) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(31, 41, 51, 0.05) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(31, 41, 51, 0.05) 75%);
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      background-size: 16px 16px;
+      padding: 12px;
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+    }
+
+    .thumb img {
+      width: 100%;
+      max-height: 360px;
+      object-fit: contain;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(31, 41, 51, 0.12);
+    }
+
+    .delete-thumb {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 41, 51, 0.18);
+      background: rgba(255, 255, 255, 0.92);
+      color: #9f1239;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(31, 41, 51, 0.12);
+    }
+
+    .delete-thumb:hover {
+      background: #fff0f3;
+      transform: translateY(-1px);
+    }
+
+    .select-thumb {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 41, 51, 0.25);
+      background: rgba(255, 255, 255, 0.95);
+      color: #1f2933;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.14s ease;
+    }
+
+    .grid.select-mode .select-thumb {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .page-card.selected {
+      border-color: rgba(200, 169, 106, 0.9);
+      box-shadow: 0 18px 42px rgba(31, 41, 51, 0.16);
+    }
+
+    .page-card.selected .select-thumb {
+      opacity: 1;
+      pointer-events: auto;
+      background: #1f2933;
+      color: #fff;
+      border-color: #1f2933;
+    }
+
+    .page-meta {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .page-meta strong {
+      letter-spacing: -0.02em;
+    }
+
+    .page-meta small {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .message {
+      margin-top: 14px;
+      color: #9f1239;
+      background: rgba(159, 18, 57, 0.08);
+      border: 1px solid rgba(159, 18, 57, 0.12);
+      padding: 12px 14px;
+      border-radius: 14px;
+      line-height: 1.6;
+      display: none;
+    }
+
+    .save-modal {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(20, 28, 36, 0.48);
+      z-index: 50;
+      padding: 20px;
+    }
+
+    .save-modal-card {
+      width: min(420px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fff;
+      box-shadow: 0 20px 56px rgba(31, 41, 51, 0.24);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .save-modal-card h3 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .save-modal-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .save-modal-actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .save-modal-actions button {
+      width: 100%;
+      justify-content: center;
+    }
+
+    footer {
+      margin-top: 42px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+      text-align: center;
+    }
+
+    @media (max-width: 860px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-main {
+        padding: 30px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .wrap {
+        width: min(100% - 20px, 1120px);
+        padding-top: 28px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .actions button {
+        width: 100%;
+      }
+
+      .result-head {
+        display: block;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="noise"></div>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="hero-main">
+        <div class="eyebrow"><span class="dot"></span>PDF TO IMAGE CONVERTER</div>
+        <h1>PDF 轉圖片<br>一頁一張，立即下載</h1>
+        <p class="lead">選取電腦上的 PDF 檔後，可將每一頁轉成 PNG 或 JPG 圖片，預覽後可單張下載，也可一次打包成 ZIP。</p>
+        <div class="privacy">
+          <span>🔒</span>
+          <div><strong>本工具在瀏覽器內完成轉換。</strong><br>PDF 不會上傳到伺服器，適合處理一般簡報、履歷、文件截圖與多頁素材轉圖。</div>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <div class="dropzone" id="dropzone">
+          <input id="pdfInput" type="file" accept="application/pdf,.pdf" />
+          <div>
+            <div class="upload-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 16V4m0 0 4.5 4.5M12 4 7.5 8.5M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <p class="drop-title">點擊選取 PDF</p>
+            <p class="drop-note">也可以把 PDF 直接拖曳到這裡</p>
+            <div class="file-name" id="fileName"></div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <label class="control">
+            圖片格式
+            <select id="format">
+              <option value="png">PNG（清晰、適合文字）</option>
+              <option value="jpeg">JPG（檔案較小）</option>
+            </select>
+          </label>
+
+          <label class="control">
+            輸出倍率
+            <select id="scale">
+              <option value="1">1x 較小</option>
+              <option value="1.5">1.5x 平衡</option>
+              <option value="2" selected>2x 推薦</option>
+              <option value="3">3x 高畫質</option>
+            </select>
+          </label>
+
+          <label class="control">
+            JPG 品質
+            <select id="quality">
+              <option value="0.78">標準</option>
+              <option value="0.9" selected>高</option>
+              <option value="0.98">最高</option>
+            </select>
+          </label>
+
+          <label class="control">
+            檔名前綴
+            <input id="prefix" type="text" value="pdf-page" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="primary" id="convertBtn" disabled>開始轉換</button>
+          <button class="secondary" id="zipBtn" disabled>下載全部 ZIP</button>
+          <button class="secondary" id="clearBtn" disabled>清除</button>
+        </div>
+
+        <div class="message" id="message"></div>
+      </aside>
+    </section>
+
+    <section class="status-panel hidden" id="statusPanel">
+      <div class="status-line">
+        <span id="statusText">準備中</span>
+        <span id="statusCount">0%</span>
+      </div>
+      <div class="progress"><div id="progressBar"></div></div>
+    </section>
+
+    <section id="resultSection" class="hidden">
+      <div class="result-head">
+        <div>
+          <h2>轉換結果</h2>
+          <p id="resultNote">每一頁都會顯示成可下載的圖片。</p>
+        </div>
+        <div class="result-actions">
+          <button class="secondary" id="selectModeBtn" disabled>批量選取</button>
+          <button class="secondary" id="bulkDeleteBtn" disabled>刪除已選</button>
+          <button class="secondary" id="copyAllBtn" disabled>複製所有圖片</button>
+          <button class="secondary" id="downloadAllBtn" disabled>下載所有圖片</button>
+        </div>
+      </div>
+      <div class="grid" id="previewGrid"></div>
+    </section>
+
+    <footer>
+      使用 PDF.js 讀取 PDF、JSZip 打包圖片。大型 PDF 或 3x 高畫質轉換會消耗較多記憶體，建議分批處理。
+    </footer>
+  </main>
+
+  <div id="appleSaveModal" class="save-modal hidden" role="dialog" aria-modal="true" aria-labelledby="appleSaveTitle">
+    <div class="save-modal-card">
+      <h3 id="appleSaveTitle">選擇儲存方式</h3>
+      <p id="appleSaveHint">請選擇要下載到檔案，或透過分享面板存到相簿 App。</p>
+      <div class="save-modal-actions">
+        <button type="button" class="secondary" id="saveToFilesBtn">下載到檔案</button>
+        <button type="button" class="primary" id="saveToPhotosBtn">存到相簿 App</button>
+        <button type="button" class="secondary" id="cancelAppleSaveBtn">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./libs/pdf.min.js"></script>
+  <script src="./libs/jszip.min.js"></script>
+  <script>
+    const input = document.getElementById('pdfInput');
+    const dropzone = document.getElementById('dropzone');
+    const fileName = document.getElementById('fileName');
+    const convertBtn = document.getElementById('convertBtn');
+    const zipBtn = document.getElementById('zipBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const formatEl = document.getElementById('format');
+    const scaleEl = document.getElementById('scale');
+    const qualityEl = document.getElementById('quality');
+    const prefixEl = document.getElementById('prefix');
+    const statusPanel = document.getElementById('statusPanel');
+    const statusText = document.getElementById('statusText');
+    const statusCount = document.getElementById('statusCount');
+    const progressBar = document.getElementById('progressBar');
+    const resultSection = document.getElementById('resultSection');
+    const resultNote = document.getElementById('resultNote');
+    const previewGrid = document.getElementById('previewGrid');
+    const message = document.getElementById('message');
+    const selectModeBtn = document.getElementById('selectModeBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const copyAllBtn = document.getElementById('copyAllBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const appleSaveModal = document.getElementById('appleSaveModal');
+    const appleSaveHint = document.getElementById('appleSaveHint');
+    const saveToFilesBtn = document.getElementById('saveToFilesBtn');
+    const saveToPhotosBtn = document.getElementById('saveToPhotosBtn');
+    const cancelAppleSaveBtn = document.getElementById('cancelAppleSaveBtn');
+
+    let selectedFile = null;
+    let convertedFiles = [];
+    let isSelectMode = false;
+    const selectedIds = new Set();
+    const STORAGE_KEY = 'pdfImageConverterRecordsV1';
+    let appleSaveChoiceResolver = null;
+
+    const isAppleDevice = (() => {
+      const ua = navigator.userAgent || '';
+      const platform = navigator.platform || '';
+      const touchMac = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+      return /iPad|iPhone|iPod|Macintosh|Mac OS X/i.test(ua) || /Mac/i.test(platform) || touchMac;
+    })();
+
+    const isIOSDevice = /iPad|iPhone|iPod/i.test(navigator.userAgent || '') ||
+      ((navigator.platform || '') === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = './libs/pdf.worker.min.js';
+    }
+
+    function setMessage(text) {
+      message.textContent = text || '';
+      message.style.display = text ? 'block' : 'none';
+    }
+
+    function setProgress(done, total, label) {
+      const percent = total ? Math.round((done / total) * 100) : 0;
+      statusText.textContent = label || '處理中';
+      statusCount.textContent = `${percent}%`;
+      progressBar.style.width = `${percent}%`;
+    }
+
+    function safeFileName(name) {
+      return String(name || 'pdf-page')
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '') || 'pdf-page';
+    }
+
+    function canvasToBlob(canvas, type, quality) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => {
+          if (blob) resolve(blob);
+          else reject(new Error('圖片產生失敗，請降低輸出倍率後再試一次。'));
+        }, type, quality);
+      });
+    }
+
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('無法讀取圖片資料'));
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function dataURLToBlob(dataURL) {
+      const [header, base64] = String(dataURL || '').split(',');
+      if (!header || !base64) return null;
+      const mime = (header.match(/data:(.*?);base64/) || [])[1] || 'application/octet-stream';
+      const binary = atob(base64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
+    }
+
+    function getItemBlob(item) {
+      return item.blob || dataURLToBlob(item.dataUrl || item.url);
+    }
+
+    function triggerFileDownload(item) {
+      const anchor = document.createElement('a');
+      anchor.href = item.url;
+      anchor.download = item.filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    }
+
+    function canUseClipboardWrite() {
+      return window.isSecureContext &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.write === 'function' &&
+        typeof window.ClipboardItem === 'function';
+    }
+
+    function canUseClipboardText() {
+      return window.isSecureContext &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === 'function';
+    }
+
+    function buildClipboardHtml(items) {
+      const rows = items.map(item => {
+        const src = item.dataUrl || item.url;
+        return `<figure style="margin:0 0 14px;"><img src="${src}" alt="第 ${item.pageNumber} 頁" style="max-width:100%;height:auto;display:block;border:0;"><figcaption style="font-size:12px;color:#4b5563;margin-top:4px;">第 ${item.pageNumber} 頁</figcaption></figure>`;
+      }).join('');
+      return `<div>${rows}</div>`;
+    }
+
+    async function copyItemsToClipboard(items) {
+      const validItems = items
+        .map(item => ({ item, blob: getItemBlob(item) }))
+        .filter(entry => entry.blob && /^image\//.test(entry.blob.type));
+
+      if (!validItems.length) {
+        setMessage('找不到可複製的圖片資料。');
+        return false;
+      }
+
+      if (canUseClipboardWrite()) {
+        try {
+          if (validItems.length === 1) {
+            const blob = validItems[0].blob;
+            await navigator.clipboard.write([
+              new ClipboardItem({ [blob.type]: blob })
+            ]);
+          } else {
+            const html = buildClipboardHtml(validItems.map(entry => entry.item));
+            const plain = validItems
+              .map(entry => `第 ${entry.item.pageNumber} 頁：${entry.item.filename}`)
+              .join('\n');
+
+            await navigator.clipboard.write([
+              new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([plain], { type: 'text/plain' })
+              })
+            ]);
+          }
+
+          setMessage(validItems.length > 1
+            ? `已複製 ${validItems.length} 張圖片內容到剪貼簿（支援貼上 HTML 的 App 可一次貼上多張）。`
+            : '已複製圖片到剪貼簿。');
+          return true;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      if (canUseClipboardText()) {
+        try {
+          const fallbackText = validItems
+            .map(entry => entry.item.dataUrl || entry.item.url)
+            .join('\n\n');
+          await navigator.clipboard.writeText(fallbackText);
+          setMessage(validItems.length > 1
+            ? '瀏覽器不支援多張圖片原生複製，已改為複製多張圖片資料網址（Data URL）。'
+            : '瀏覽器不支援原生圖片複製，已改為複製圖片資料網址（Data URL）。');
+          return true;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      setMessage('複製失敗：請改用 HTTPS/localhost 開啟頁面，並允許剪貼簿權限。');
+      return false;
+    }
+
+    function openImageForManualPhotoSave(item) {
+      const win = window.open(item.url, '_blank', 'noopener');
+      if (!win) {
+        setMessage('瀏覽器擋下彈出視窗，請允許彈窗後再試一次。');
+        return;
+      }
+      setMessage(isIOSDevice
+        ? '已開啟圖片，請長按圖片並選擇「儲存到照片」。'
+        : '已開啟圖片，請使用分享選單存到照片 App。');
+    }
+
+    function openAppleSaveChoice(count) {
+      if (!isAppleDevice) return Promise.resolve('files');
+
+      appleSaveHint.textContent = count > 1
+        ? `目前有 ${count} 張圖片。可下載到檔案，或嘗試用分享面板存到相簿 App。`
+        : '可下載到檔案，或用分享面板直接存到相簿 App。';
+
+      appleSaveModal.classList.remove('hidden');
+
+      return new Promise(resolve => {
+        appleSaveChoiceResolver = resolve;
+      });
+    }
+
+    function closeAppleSaveChoice(choice) {
+      appleSaveModal.classList.add('hidden');
+      if (appleSaveChoiceResolver) {
+        appleSaveChoiceResolver(choice);
+        appleSaveChoiceResolver = null;
+      }
+    }
+
+    async function shareItemsToPhotos(items) {
+      const shareApi = navigator.share;
+      const canShareApi = navigator.canShare;
+      if (!shareApi || !canShareApi) {
+        openImageForManualPhotoSave(items[0]);
+        return;
+      }
+
+      const files = items
+        .map(item => {
+          const blob = getItemBlob(item);
+          if (!blob) return null;
+          return new File([blob], item.filename, { type: blob.type || 'image/png' });
+        })
+        .filter(Boolean);
+
+      if (!files.length || !canShareApi.call(navigator, { files })) {
+        openImageForManualPhotoSave(items[0]);
+        return;
+      }
+
+      try {
+        // Keep payload minimal for iOS so Photos-related targets are more likely to appear.
+        await shareApi.call(navigator, {
+          files,
+          title: files.length > 1 ? `共 ${files.length} 張圖片` : files[0].name
+        });
+      } catch (error) {
+        if (error && error.name === 'AbortError') return;
+        openImageForManualPhotoSave(items[0]);
+      }
+
+      if (!isIOSDevice) {
+        setMessage('若分享選單未出現「照片」，可在分享視窗點「編輯延伸功能」把「照片」加入。');
+      }
+    }
+
+    function updateResultState() {
+      const hasItems = convertedFiles.length > 0;
+      resultSection.classList.toggle('hidden', !hasItems);
+      zipBtn.disabled = !hasItems;
+      downloadAllBtn.disabled = !hasItems;
+      copyAllBtn.disabled = !hasItems;
+      selectModeBtn.disabled = !hasItems;
+      bulkDeleteBtn.disabled = !hasItems || selectedIds.size === 0;
+      clearBtn.disabled = !hasItems && !selectedFile;
+      resultNote.textContent = hasItems
+        ? `共 ${convertedFiles.length} 張，可單張下載、複製、刪除，或一次下載／複製全部。${isSelectMode ? ` 已選取 ${selectedIds.size} 張。` : ''}`
+        : '每一頁都會顯示成可下載的圖片。';
+    }
+
+    function setSelectMode(enabled) {
+      isSelectMode = Boolean(enabled);
+      if (!isSelectMode) selectedIds.clear();
+      previewGrid.classList.toggle('select-mode', isSelectMode);
+      selectModeBtn.classList.toggle('active', isSelectMode);
+      selectModeBtn.textContent = isSelectMode ? '取消選取' : '批量選取';
+      previewGrid.querySelectorAll('.page-card').forEach(card => {
+        const id = card.dataset.id;
+        card.classList.toggle('selected', isSelectMode && selectedIds.has(id));
+      });
+      updateResultState();
+    }
+
+    function toggleCardSelection(id, card) {
+      if (!isSelectMode) return;
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
+      card.classList.toggle('selected', selectedIds.has(id));
+      updateResultState();
+    }
+
+    function saveConvertedFiles() {
+      try {
+        const records = convertedFiles.map(item => ({
+          id: item.id,
+          pageNumber: item.pageNumber,
+          filename: item.filename,
+          width: item.width,
+          height: item.height,
+          size: item.size,
+          dataUrl: item.dataUrl || item.url
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      } catch (error) {
+        console.warn('saveConvertedFiles failed', error);
+      }
+    }
+
+    function removePreviewItems(ids) {
+      const removeSet = new Set(ids);
+      if (!removeSet.size) return;
+
+      convertedFiles.forEach(item => {
+        if (removeSet.has(item.id) && item.url && !String(item.url).startsWith('data:')) {
+          URL.revokeObjectURL(item.url);
+        }
+      });
+
+      convertedFiles = convertedFiles.filter(item => !removeSet.has(item.id));
+      removeSet.forEach(id => selectedIds.delete(id));
+
+      previewGrid.querySelectorAll('.page-card').forEach(card => {
+        if (removeSet.has(card.dataset.id)) card.remove();
+      });
+
+      if (!convertedFiles.length && isSelectMode) {
+        setSelectMode(false);
+      }
+
+      saveConvertedFiles();
+      updateResultState();
+    }
+
+    function restoreConvertedFiles() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const records = JSON.parse(raw);
+        if (!Array.isArray(records) || !records.length) return;
+        convertedFiles = records
+          .filter(item => item && typeof item.dataUrl === 'string' && item.dataUrl.startsWith('data:'))
+          .map((item, index) => ({
+            id: item.id || `restored-${Date.now()}-${index}`,
+            pageNumber: Number(item.pageNumber) || index + 1,
+            filename: item.filename || `pdf-page-${index + 1}.png`,
+            blob: null,
+            dataUrl: item.dataUrl,
+            url: item.dataUrl,
+            width: Number(item.width) || 0,
+            height: Number(item.height) || 0,
+            size: Number(item.size) || 0
+          }));
+
+        previewGrid.innerHTML = '';
+        selectedIds.clear();
+        isSelectMode = false;
+        previewGrid.classList.remove('select-mode');
+        convertedFiles.forEach(addPreviewCard);
+        updateResultState();
+      } catch (error) {
+        console.warn('restoreConvertedFiles failed', error);
+      }
+    }
+
+    function clearResults() {
+      convertedFiles.forEach(item => {
+        if (item.url && !String(item.url).startsWith('data:')) {
+          URL.revokeObjectURL(item.url);
+        }
+      });
+      convertedFiles = [];
+      selectedIds.clear();
+      isSelectMode = false;
+      previewGrid.classList.remove('select-mode');
+      previewGrid.innerHTML = '';
+      localStorage.removeItem(STORAGE_KEY);
+      updateResultState();
+    }
+
+    function resetAll() {
+      selectedFile = null;
+      input.value = '';
+      fileName.textContent = '';
+      fileName.style.display = 'none';
+      convertBtn.disabled = true;
+      clearBtn.disabled = true;
+      statusPanel.classList.add('hidden');
+      setProgress(0, 1, '準備中');
+      setMessage('');
+      clearResults();
+    }
+
+    function handleFile(file) {
+      setMessage('');
+      clearResults();
+
+      if (!file) return;
+
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        resetAll();
+        setMessage('請選取 PDF 檔案。');
+        return;
+      }
+
+      selectedFile = file;
+      fileName.textContent = `${file.name}｜${(file.size / 1024 / 1024).toFixed(2)} MB`;
+      fileName.style.display = 'block';
+      convertBtn.disabled = false;
+      clearBtn.disabled = false;
+    }
+
+    input.addEventListener('change', event => {
+      handleFile(event.target.files[0]);
+    });
+
+    ['dragenter', 'dragover'].forEach(name => {
+      dropzone.addEventListener(name, event => {
+        event.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(name => {
+      dropzone.addEventListener(name, event => {
+        event.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    });
+
+    dropzone.addEventListener('drop', event => {
+      const file = event.dataTransfer.files[0];
+      handleFile(file);
+    });
+
+    convertBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      if (!window.pdfjsLib || !window.JSZip) {
+        setMessage('必要套件尚未載入。請確認網路連線，或將 PDF.js / JSZip 改為本機檔案。');
+        return;
+      }
+
+      setMessage('');
+      clearResults();
+      statusPanel.classList.remove('hidden');
+
+      convertBtn.disabled = true;
+      zipBtn.disabled = true;
+      selectModeBtn.disabled = true;
+      bulkDeleteBtn.disabled = true;
+      downloadAllBtn.disabled = true;
+
+      try {
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const totalPages = pdf.numPages;
+        const format = formatEl.value;
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+        const extension = format === 'jpeg' ? 'jpg' : 'png';
+        const scale = Number(scaleEl.value);
+        const quality = Number(qualityEl.value);
+        const prefix = safeFileName(prefixEl.value);
+
+        setProgress(0, totalPages, `讀取成功，共 ${totalPages} 頁`);
+
+        for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+          setProgress(pageNumber - 1, totalPages, `正在轉換第 ${pageNumber} / ${totalPages} 頁`);
+
+          const page = await pdf.getPage(pageNumber);
+          const viewport = page.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d', { alpha: false });
+
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+
+          context.fillStyle = '#ffffff';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+
+          await page.render({
+            canvasContext: context,
+            viewport
+          }).promise;
+
+          const blob = await canvasToBlob(canvas, mimeType, quality);
+          const url = URL.createObjectURL(blob);
+          const dataUrl = await blobToDataURL(blob);
+          const pageLabel = String(pageNumber).padStart(String(totalPages).length, '0');
+          const filename = `${prefix}-${pageLabel}.${extension}`;
+
+          convertedFiles.push({
+            id: `item-${Date.now()}-${pageNumber}`,
+            pageNumber,
+            filename,
+            blob,
+            dataUrl,
+            url,
+            width: canvas.width,
+            height: canvas.height,
+            size: blob.size
+          });
+
+          addPreviewCard(convertedFiles[convertedFiles.length - 1]);
+
+          page.cleanup();
+          canvas.width = 0;
+          canvas.height = 0;
+
+          setProgress(pageNumber, totalPages, `已完成第 ${pageNumber} / ${totalPages} 頁`);
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        setProgress(totalPages, totalPages, `轉換完成，共產生 ${totalPages} 張圖片`);
+        saveConvertedFiles();
+        updateResultState();
+      } catch (error) {
+        console.error(error);
+        setMessage(`轉換失敗：${error.message || '可能是加密 PDF、檔案損毀，或瀏覽器記憶體不足。'}`);
+      } finally {
+        convertBtn.disabled = false;
+      }
+    });
+
+    function addPreviewCard(item) {
+      const card = document.createElement('article');
+      card.className = 'page-card';
+      card.dataset.id = item.id;
+
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb';
+
+      const image = document.createElement('img');
+      image.src = item.url;
+      image.alt = `第 ${item.pageNumber} 頁預覽`;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'delete-thumb';
+      removeBtn.textContent = 'X';
+      removeBtn.title = `刪除第 ${item.pageNumber} 頁`;
+      removeBtn.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const ok = window.confirm(`確定要刪除第 ${item.pageNumber} 頁嗎？`);
+        if (!ok) return;
+        removePreviewItems([item.id]);
+      });
+
+      const selectBtn = document.createElement('button');
+      selectBtn.type = 'button';
+      selectBtn.className = 'select-thumb';
+      selectBtn.textContent = '✓';
+      selectBtn.title = `選取第 ${item.pageNumber} 頁`;
+      selectBtn.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isSelectMode) setSelectMode(true);
+        toggleCardSelection(item.id, card);
+      });
+
+      thumb.appendChild(selectBtn);
+      thumb.appendChild(removeBtn);
+      thumb.appendChild(image);
+
+      const meta = document.createElement('div');
+      meta.className = 'page-meta';
+
+      const title = document.createElement('strong');
+      title.textContent = `第 ${item.pageNumber} 頁`;
+
+      const info = document.createElement('small');
+      info.textContent = `${item.width} × ${item.height}px｜${(item.size / 1024).toFixed(0)} KB`;
+
+      const download = document.createElement('a');
+      download.href = item.url;
+      download.download = item.filename;
+      download.className = 'button-link';
+      download.textContent = '下載這張圖片';
+      download.addEventListener('click', async event => {
+        if (!isAppleDevice) return;
+        event.preventDefault();
+        const mode = await openAppleSaveChoice(1);
+        if (mode === 'files') {
+          triggerFileDownload(item);
+          return;
+        }
+        if (mode === 'photos') {
+          await shareItemsToPhotos([item]);
+        }
+      });
+
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'secondary';
+      copyBtn.textContent = '複製這張圖片';
+      copyBtn.addEventListener('click', async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const originalText = copyBtn.textContent;
+        copyBtn.disabled = true;
+        copyBtn.textContent = '複製中...';
+        try {
+          await copyItemsToClipboard([item]);
+        } finally {
+          copyBtn.textContent = originalText;
+          copyBtn.disabled = false;
+        }
+      });
+
+      meta.appendChild(title);
+      meta.appendChild(info);
+      meta.appendChild(copyBtn);
+      meta.appendChild(download);
+
+      card.addEventListener('click', event => {
+        if (!isSelectMode) return;
+        if (event.target.closest('a, button')) return;
+        toggleCardSelection(item.id, card);
+      });
+
+      card.appendChild(thumb);
+      card.appendChild(meta);
+      previewGrid.appendChild(card);
+    }
+
+    selectModeBtn.addEventListener('click', () => {
+      if (!convertedFiles.length) return;
+      setSelectMode(!isSelectMode);
+    });
+
+    appleSaveModal.addEventListener('click', event => {
+      if (event.target === appleSaveModal) closeAppleSaveChoice('cancel');
+    });
+
+    saveToFilesBtn.addEventListener('click', () => closeAppleSaveChoice('files'));
+    saveToPhotosBtn.addEventListener('click', () => closeAppleSaveChoice('photos'));
+    cancelAppleSaveBtn.addEventListener('click', () => closeAppleSaveChoice('cancel'));
+
+    bulkDeleteBtn.addEventListener('click', () => {
+      if (!selectedIds.size) return;
+      const count = selectedIds.size;
+      const ok = window.confirm(`確定要刪除已選取的 ${count} 張圖片嗎？`);
+      if (!ok) return;
+      removePreviewItems([...selectedIds]);
+      setSelectMode(false);
+    });
+
+    copyAllBtn.addEventListener('click', async () => {
+      if (!convertedFiles.length) return;
+      copyAllBtn.disabled = true;
+      const originalText = copyAllBtn.textContent;
+      copyAllBtn.textContent = '複製中...';
+
+      try {
+        await copyItemsToClipboard(convertedFiles);
+      } finally {
+        copyAllBtn.textContent = originalText;
+        copyAllBtn.disabled = false;
+      }
+    });
+
+    downloadAllBtn.addEventListener('click', async () => {
+      if (!convertedFiles.length) return;
+      downloadAllBtn.disabled = true;
+      const originalText = downloadAllBtn.textContent;
+      downloadAllBtn.textContent = '下載中...';
+
+      try {
+        let mode = 'files';
+        if (isAppleDevice) {
+          mode = await openAppleSaveChoice(convertedFiles.length);
+          if (mode === 'cancel') return;
+        }
+
+        if (mode === 'photos') {
+          await shareItemsToPhotos(convertedFiles);
+          return;
+        }
+
+        for (const item of convertedFiles) {
+          triggerFileDownload(item);
+          await new Promise(resolve => setTimeout(resolve, 120));
+        }
+      } finally {
+        downloadAllBtn.textContent = originalText;
+        downloadAllBtn.disabled = false;
+      }
+    });
+
+    zipBtn.addEventListener('click', async () => {
+      if (!convertedFiles.length) return;
+
+      zipBtn.disabled = true;
+      const originalText = zipBtn.textContent;
+      zipBtn.textContent = '正在打包 ZIP...';
+
+      try {
+        const zip = new JSZip();
+        convertedFiles.forEach(item => {
+          const blob = item.blob || dataURLToBlob(item.dataUrl || item.url);
+          if (blob) zip.file(item.filename, blob);
+        });
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' }, metadata => {
+          const percent = Math.round(metadata.percent || 0);
+          statusText.textContent = '正在打包全部圖片';
+          statusCount.textContent = `${percent}%`;
+          progressBar.style.width = `${percent}%`;
+        });
+
+        const url = URL.createObjectURL(zipBlob);
+        const anchor = document.createElement('a');
+        const zipName = `${safeFileName(prefixEl.value)}-images.zip`;
+        anchor.href = url;
+        anchor.download = zipName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        statusText.textContent = 'ZIP 已準備下載';
+      } catch (error) {
+        console.error(error);
+        setMessage(`ZIP 打包失敗：${error.message || '請嘗試降低輸出倍率。'}`);
+      } finally {
+        zipBtn.textContent = originalText;
+        zipBtn.disabled = false;
+      }
+    });
+
+    clearBtn.addEventListener('click', resetAll);
+
+    restoreConvertedFiles();
+    updateResultState();
+  </script>
+</body>
+</html>
