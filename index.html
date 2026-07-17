@@ -552,6 +552,174 @@
       justify-content: center;
     }
 
+    .image-preview-modal {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(20, 28, 36, 0.6);
+      z-index: 60;
+      padding: 24px;
+    }
+
+    .image-preview-card {
+      position: relative;
+      width: 92vw;
+      max-height: 92vh;
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 24px 70px rgba(31, 41, 51, 0.3);
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .image-preview-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #9f1239;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(31, 41, 51, 0.18);
+      flex: none;
+    }
+
+    .image-preview-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .image-preview-toolbar button:not(.image-preview-close) {
+      padding: 8px 14px;
+      font-size: 13px;
+    }
+
+    .image-preview-stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(45deg, rgba(31, 41, 51, 0.05) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(31, 41, 51, 0.05) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(31, 41, 51, 0.05) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(31, 41, 51, 0.05) 75%);
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      background-size: 16px 16px;
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .image-preview-img-wrap {
+      position: relative;
+      display: inline-block;
+      line-height: 0;
+    }
+
+    .image-preview-img-wrap img {
+      display: block;
+      max-width: 100%;
+      max-height: 70vh;
+      border-radius: 6px;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .crop-mask {
+      position: absolute;
+      background: rgba(15, 20, 26, 0.55);
+      pointer-events: none;
+    }
+
+    .crop-rect {
+      position: absolute;
+      border: 1.5px solid #fff;
+      box-sizing: border-box;
+      touch-action: none;
+    }
+
+    .crop-handle {
+      position: absolute;
+      background: #fff;
+      border: 1.5px solid #1f2933;
+      border-radius: 4px;
+      width: 14px;
+      height: 14px;
+      touch-action: none;
+    }
+
+    .crop-handle.n { top: -7px; left: 50%; margin-left: -7px; cursor: ns-resize; }
+    .crop-handle.s { bottom: -7px; left: 50%; margin-left: -7px; cursor: ns-resize; }
+    .crop-handle.e { right: -7px; top: 50%; margin-top: -7px; cursor: ew-resize; }
+    .crop-handle.w { left: -7px; top: 50%; margin-top: -7px; cursor: ew-resize; }
+    .crop-handle.ne { top: -7px; right: -7px; cursor: nesw-resize; }
+    .crop-handle.nw { top: -7px; left: -7px; cursor: nwse-resize; }
+    .crop-handle.se { bottom: -7px; right: -7px; cursor: nwse-resize; }
+    .crop-handle.sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+
+    .image-preview-meta {
+      display: grid;
+      gap: 2px;
+    }
+
+    .image-preview-meta strong {
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+
+    .image-preview-meta small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .image-preview-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .image-preview-actions button {
+      flex: 1;
+      justify-content: center;
+      padding: 11px 8px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .image-preview-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(31, 41, 51, 0.16);
+    }
+
+    .image-preview-nav:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .image-preview-nav.prev { left: 8px; }
+    .image-preview-nav.next { right: 8px; }
+
     footer {
       margin-top: 42px;
       color: var(--muted);
@@ -684,9 +852,10 @@
         </div>
         <div class="result-actions">
           <button class="secondary" id="selectModeBtn" disabled>批量選取</button>
+          <button class="secondary" id="selectAllBtn" disabled>全選</button>
           <button class="secondary" id="bulkDeleteBtn" disabled>刪除已選</button>
-          <button class="secondary" id="copyAllBtn" disabled>複製所有圖片</button>
-          <button class="secondary" id="downloadAllBtn" disabled>下載所有圖片</button>
+          <button class="secondary" id="copyAllBtn" disabled>複製已選取</button>
+          <button class="secondary" id="downloadAllBtn" disabled>下載已選取</button>
         </div>
       </div>
       <div class="grid" id="previewGrid"></div>
@@ -705,6 +874,47 @@
         <button type="button" class="secondary" id="saveToFilesBtn">下載到檔案</button>
         <button type="button" class="primary" id="saveToPhotosBtn">存到相簿 App</button>
         <button type="button" class="secondary" id="cancelAppleSaveBtn">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="imagePreviewModal" class="image-preview-modal hidden" role="dialog" aria-modal="true" aria-labelledby="imagePreviewTitle">
+    <div class="image-preview-card">
+      <div class="image-preview-toolbar">
+        <button type="button" class="secondary" id="cropResetBtn">重設裁切</button>
+        <button type="button" class="image-preview-close" id="imagePreviewClose" title="關閉" aria-label="關閉">✕</button>
+      </div>
+
+      <div class="image-preview-stage">
+        <button type="button" class="image-preview-nav prev" id="previewPrevBtn" title="上一張" aria-label="上一張">‹</button>
+        <div class="image-preview-img-wrap" id="previewImgWrap">
+          <img id="previewImg" src="" alt="" draggable="false" />
+          <div class="crop-mask" id="cropMaskTop"></div>
+          <div class="crop-mask" id="cropMaskBottom"></div>
+          <div class="crop-mask" id="cropMaskLeft"></div>
+          <div class="crop-mask" id="cropMaskRight"></div>
+          <div class="crop-rect" id="cropRect">
+            <div class="crop-handle n" data-dir="n"></div>
+            <div class="crop-handle s" data-dir="s"></div>
+            <div class="crop-handle e" data-dir="e"></div>
+            <div class="crop-handle w" data-dir="w"></div>
+            <div class="crop-handle ne" data-dir="ne"></div>
+            <div class="crop-handle nw" data-dir="nw"></div>
+            <div class="crop-handle se" data-dir="se"></div>
+            <div class="crop-handle sw" data-dir="sw"></div>
+          </div>
+        </div>
+        <button type="button" class="image-preview-nav next" id="previewNextBtn" title="下一張" aria-label="下一張">›</button>
+      </div>
+
+      <div class="image-preview-meta">
+        <strong id="imagePreviewTitle">第 1 頁</strong>
+        <small id="imagePreviewInfo"></small>
+      </div>
+
+      <div class="image-preview-actions">
+        <button type="button" class="secondary" id="previewCopyBtn">複製圖片</button>
+        <button type="button" class="secondary" id="previewDownloadBtn">下載圖片</button>
       </div>
     </div>
   </div>
@@ -731,6 +941,7 @@
     const previewGrid = document.getElementById('previewGrid');
     const message = document.getElementById('message');
     const selectModeBtn = document.getElementById('selectModeBtn');
+    const selectAllBtn = document.getElementById('selectAllBtn');
     const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
     const copyAllBtn = document.getElementById('copyAllBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
@@ -739,6 +950,22 @@
     const saveToFilesBtn = document.getElementById('saveToFilesBtn');
     const saveToPhotosBtn = document.getElementById('saveToPhotosBtn');
     const cancelAppleSaveBtn = document.getElementById('cancelAppleSaveBtn');
+    const imagePreviewModal = document.getElementById('imagePreviewModal');
+    const imagePreviewClose = document.getElementById('imagePreviewClose');
+    const previewImgWrap = document.getElementById('previewImgWrap');
+    const previewImg = document.getElementById('previewImg');
+    const cropMaskTop = document.getElementById('cropMaskTop');
+    const cropMaskBottom = document.getElementById('cropMaskBottom');
+    const cropMaskLeft = document.getElementById('cropMaskLeft');
+    const cropMaskRight = document.getElementById('cropMaskRight');
+    const cropRectEl = document.getElementById('cropRect');
+    const cropResetBtn = document.getElementById('cropResetBtn');
+    const previewCopyBtn = document.getElementById('previewCopyBtn');
+    const previewDownloadBtn = document.getElementById('previewDownloadBtn');
+    const previewPrevBtn = document.getElementById('previewPrevBtn');
+    const previewNextBtn = document.getElementById('previewNextBtn');
+    const imagePreviewTitle = document.getElementById('imagePreviewTitle');
+    const imagePreviewInfo = document.getElementById('imagePreviewInfo');
 
     let selectedFile = null;
     let convertedFiles = [];
@@ -746,6 +973,13 @@
     const selectedIds = new Set();
     const STORAGE_KEY = 'pdfImageConverterRecordsV1';
     let appleSaveChoiceResolver = null;
+    let previewIndex = -1;
+    let cropRectState = null;
+    let lastWrapSize = null;
+    let cropDragState = null;
+    const savedCropStates = new Map();
+    const cropPreviewUrls = new Map();
+    let enterConvertArmed = false;
 
     const isAppleDevice = (() => {
       const ua = navigator.userAgent || '';
@@ -825,16 +1059,44 @@
     }
 
     function canUseClipboardWrite() {
-      return window.isSecureContext &&
-        navigator.clipboard &&
+      return navigator.clipboard &&
         typeof navigator.clipboard.write === 'function' &&
         typeof window.ClipboardItem === 'function';
     }
 
     function canUseClipboardText() {
-      return window.isSecureContext &&
-        navigator.clipboard &&
+      return navigator.clipboard &&
         typeof navigator.clipboard.writeText === 'function';
+    }
+
+    function legacyCopyText(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = String(text || '');
+      textarea.setAttribute('readonly', 'readonly');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+
+      let copied = false;
+      try {
+        copied = document.execCommand('copy');
+      } catch (error) {
+        copied = false;
+      }
+
+      textarea.remove();
+      return copied;
+    }
+
+    function openImageForManualCopy(item) {
+      const win = window.open(item.url, '_blank', 'noopener');
+      if (!win) return false;
+      setMessage('此環境無法直接寫入剪貼簿，已開啟圖片分頁。請在新分頁對圖片按右鍵複製，或直接下載。');
+      return true;
     }
 
     function buildClipboardHtml(items) {
@@ -900,7 +1162,27 @@
         }
       }
 
-      setMessage('複製失敗：請改用 HTTPS/localhost 開啟頁面，並允許剪貼簿權限。');
+      const legacyText = validItems
+        .map(entry => entry.item.dataUrl || entry.item.url)
+        .join('\n\n');
+      if (legacyText && legacyCopyText(legacyText)) {
+        setMessage(validItems.length > 1
+          ? '已改用相容模式，複製多張圖片的資料網址（Data URL）。'
+          : '已改用相容模式，複製圖片資料網址（Data URL）。');
+        return true;
+      }
+
+      if (validItems.length === 1 && openImageForManualCopy(validItems[0].item)) {
+        return false;
+      }
+
+      // Final offline fallback: trigger download when clipboard is blocked.
+      for (const entry of validItems) {
+        triggerFileDownload(entry.item);
+        await new Promise(resolve => setTimeout(resolve, 120));
+      }
+
+      setMessage('此瀏覽器環境無法使用剪貼簿，已改為下載圖片。');
       return false;
     }
 
@@ -978,11 +1260,14 @@
       const hasItems = convertedFiles.length > 0;
       resultSection.classList.toggle('hidden', !hasItems);
       zipBtn.disabled = !hasItems;
-      downloadAllBtn.disabled = !hasItems;
-      copyAllBtn.disabled = !hasItems;
       selectModeBtn.disabled = !hasItems;
-      bulkDeleteBtn.disabled = !hasItems || selectedIds.size === 0;
+      selectAllBtn.disabled = !hasItems || !isSelectMode;
+      bulkDeleteBtn.disabled = !hasItems || !isSelectMode || selectedIds.size === 0;
+      copyAllBtn.disabled = !hasItems || (isSelectMode && selectedIds.size === 0);
+      downloadAllBtn.disabled = !hasItems || (isSelectMode && selectedIds.size === 0);
       clearBtn.disabled = !hasItems && !selectedFile;
+      const allSelected = hasItems && selectedIds.size === convertedFiles.length;
+      selectAllBtn.textContent = allSelected ? '取消全選' : '全選';
       resultNote.textContent = hasItems
         ? `共 ${convertedFiles.length} 張，可單張下載、複製、刪除，或一次下載／複製全部。${isSelectMode ? ` 已選取 ${selectedIds.size} 張。` : ''}`
         : '每一頁都會顯示成可下載的圖片。';
@@ -1031,8 +1316,17 @@
       if (!removeSet.size) return;
 
       convertedFiles.forEach(item => {
-        if (removeSet.has(item.id) && item.url && !String(item.url).startsWith('data:')) {
+        if (!removeSet.has(item.id)) return;
+        if (item.url && !String(item.url).startsWith('data:')) {
           URL.revokeObjectURL(item.url);
+        }
+        if (item._originalUrl && !String(item._originalUrl).startsWith('data:') && item._originalUrl !== item.url) {
+          URL.revokeObjectURL(item._originalUrl);
+        }
+        savedCropStates.delete(item.id);
+        if (cropPreviewUrls.has(item.id)) {
+          URL.revokeObjectURL(cropPreviewUrls.get(item.id));
+          cropPreviewUrls.delete(item.id);
         }
       });
 
@@ -1087,8 +1381,15 @@
         if (item.url && !String(item.url).startsWith('data:')) {
           URL.revokeObjectURL(item.url);
         }
+        if (item._originalUrl && !String(item._originalUrl).startsWith('data:') && item._originalUrl !== item.url) {
+          URL.revokeObjectURL(item._originalUrl);
+        }
       });
       convertedFiles = [];
+      savedCropStates.clear();
+      cropPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+      cropPreviewUrls.clear();
+      closeImagePreview();
       selectedIds.clear();
       isSelectMode = false;
       previewGrid.classList.remove('select-mode');
@@ -1099,6 +1400,7 @@
 
     function resetAll() {
       selectedFile = null;
+      enterConvertArmed = false;
       input.value = '';
       fileName.textContent = '';
       fileName.style.display = 'none';
@@ -1123,6 +1425,7 @@
       }
 
       selectedFile = file;
+      enterConvertArmed = true;
       fileName.textContent = `${file.name}｜${(file.size / 1024 / 1024).toFixed(2)} MB`;
       fileName.style.display = 'block';
       convertBtn.disabled = false;
@@ -1152,8 +1455,16 @@
       handleFile(file);
     });
 
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && enterConvertArmed && selectedFile && !convertBtn.disabled) {
+        event.preventDefault();
+        convertBtn.click();
+      }
+    });
+
     convertBtn.addEventListener('click', async () => {
       if (!selectedFile) return;
+      enterConvertArmed = false;
 
       if (!window.pdfjsLib || !window.JSZip) {
         setMessage('必要套件尚未載入。請確認網路連線，或將 PDF.js / JSZip 改為本機檔案。');
@@ -1167,7 +1478,9 @@
       convertBtn.disabled = true;
       zipBtn.disabled = true;
       selectModeBtn.disabled = true;
+      selectAllBtn.disabled = true;
       bulkDeleteBtn.disabled = true;
+      copyAllBtn.disabled = true;
       downloadAllBtn.disabled = true;
 
       try {
@@ -1252,6 +1565,15 @@
       const image = document.createElement('img');
       image.src = item.url;
       image.alt = `第 ${item.pageNumber} 頁預覽`;
+      image.style.cursor = 'zoom-in';
+      image.addEventListener('click', event => {
+        event.stopPropagation();
+        if (isSelectMode) {
+          toggleCardSelection(item.id, card);
+          return;
+        }
+        openImagePreview(item.id);
+      });
 
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
@@ -1292,21 +1614,21 @@
       info.textContent = `${item.width} × ${item.height}px｜${(item.size / 1024).toFixed(0)} KB`;
 
       const download = document.createElement('a');
-      download.href = item.url;
-      download.download = item.filename;
+      download.href = '#';
       download.className = 'button-link';
       download.textContent = '下載這張圖片';
       download.addEventListener('click', async event => {
-        if (!isAppleDevice) return;
         event.preventDefault();
-        const mode = await openAppleSaveChoice(1);
-        if (mode === 'files') {
-          triggerFileDownload(item);
-          return;
+        const cropData = await getItemWithCrop(item);
+        const tempItem = { ...item, blob: cropData.blob, dataUrl: cropData.dataUrl, url: cropData.url, width: cropData.width, height: cropData.height };
+        if (isAppleDevice) {
+          const mode = await openAppleSaveChoice(1);
+          if (mode === 'files') triggerFileDownload(tempItem);
+          else if (mode === 'photos') await shareItemsToPhotos([tempItem]);
+        } else {
+          triggerFileDownload(tempItem);
         }
-        if (mode === 'photos') {
-          await shareItemsToPhotos([item]);
-        }
+        if (cropData.isCropped) URL.revokeObjectURL(cropData.url);
       });
 
       const copyBtn = document.createElement('button');
@@ -1319,9 +1641,13 @@
         const originalText = copyBtn.textContent;
         copyBtn.disabled = true;
         copyBtn.textContent = '複製中...';
+        let cropData = null;
         try {
-          await copyItemsToClipboard([item]);
+          cropData = await getItemWithCrop(item);
+          const tempItem = { ...item, blob: cropData.blob, dataUrl: cropData.dataUrl, url: cropData.url, width: cropData.width, height: cropData.height };
+          await copyItemsToClipboard([tempItem]);
         } finally {
+          if (cropData && cropData.isCropped) URL.revokeObjectURL(cropData.url);
           copyBtn.textContent = originalText;
           copyBtn.disabled = false;
         }
@@ -1343,9 +1669,437 @@
       previewGrid.appendChild(card);
     }
 
+    function findIndexById(id) {
+      return convertedFiles.findIndex(item => item.id === id);
+    }
+
+    function findCardEl(id) {
+      return Array.from(previewGrid.children).find(card => card.dataset.id === id);
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('圖片載入失敗'));
+        img.src = src;
+      });
+    }
+
+    function inferMimeFromDataUrl(dataUrl) {
+      const match = /^data:([^;]+);/.exec(String(dataUrl || ''));
+      return match ? match[1] : null;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    async function getCurrentCropBlob(item) {
+      if (!cropRectState || !previewImg.clientWidth || !previewImg.clientHeight) {
+        return { blob: item.blob, dataUrl: item.dataUrl, url: item.url, width: item.width, height: item.height };
+      }
+      const isFullImage = cropRectState.left === 0 && cropRectState.top === 0 &&
+        Math.abs(cropRectState.width - previewImg.clientWidth) < 1 &&
+        Math.abs(cropRectState.height - previewImg.clientHeight) < 1;
+      if (isFullImage) {
+        return { blob: item.blob, dataUrl: item.dataUrl, url: item.url, width: item.width, height: item.height };
+      }
+      const scaleX = previewImg.naturalWidth / previewImg.clientWidth;
+      const scaleY = previewImg.naturalHeight / previewImg.clientHeight;
+      const box = {
+        x: cropRectState.left * scaleX,
+        y: cropRectState.top * scaleY,
+        w: cropRectState.width * scaleX,
+        h: cropRectState.height * scaleY
+      };
+      const sourceSrc = item.dataUrl || item.url;
+      const img = await loadImage(sourceSrc);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(box.w));
+      canvas.height = Math.max(1, Math.round(box.h));
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, box.x, box.y, box.w, box.h, 0, 0, canvas.width, canvas.height);
+      const mimeType = (item.blob && item.blob.type) || inferMimeFromDataUrl(sourceSrc) || 'image/png';
+      const quality = mimeType === 'image/jpeg' ? (Number(qualityEl.value) || 0.9) : undefined;
+      const blob = await canvasToBlob(canvas, mimeType, quality);
+      const dataUrl = await blobToDataURL(blob);
+      return { blob, dataUrl, url: URL.createObjectURL(blob), width: canvas.width, height: canvas.height, isCropped: true };
+    }
+
+    async function getItemWithCrop(item) {
+      const saved = savedCropStates.get(item.id);
+      if (!saved) {
+        return { blob: item.blob, dataUrl: item.dataUrl, url: item.url, width: item.width, height: item.height };
+      }
+      const isFullImage = saved.left === 0 && saved.top === 0 &&
+        Math.abs(saved.width - 1) < 0.001 && Math.abs(saved.height - 1) < 0.001;
+      if (isFullImage) {
+        return { blob: item.blob, dataUrl: item.dataUrl, url: item.url, width: item.width, height: item.height };
+      }
+      const sourceSrc = item.dataUrl || item.url;
+      const img = await loadImage(sourceSrc);
+      const box = {
+        x: saved.left * img.naturalWidth,
+        y: saved.top * img.naturalHeight,
+        w: saved.width * img.naturalWidth,
+        h: saved.height * img.naturalHeight
+      };
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(box.w));
+      canvas.height = Math.max(1, Math.round(box.h));
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, box.x, box.y, box.w, box.h, 0, 0, canvas.width, canvas.height);
+      const mimeType = (item.blob && item.blob.type) || inferMimeFromDataUrl(sourceSrc) || 'image/png';
+      const quality = mimeType === 'image/jpeg' ? (Number(qualityEl.value) || 0.9) : undefined;
+      const blob = await canvasToBlob(canvas, mimeType, quality);
+      const dataUrl = await blobToDataURL(blob);
+      return { blob, dataUrl, url: URL.createObjectURL(blob), width: canvas.width, height: canvas.height, isCropped: true };
+    }
+
+    async function applyCropToItem(item, box) {
+      const sourceSrc = item.dataUrl || item.url;
+      const img = await loadImage(sourceSrc);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(box.w));
+      canvas.height = Math.max(1, Math.round(box.h));
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, box.x, box.y, box.w, box.h, 0, 0, canvas.width, canvas.height);
+
+      const mimeType = (item.blob && item.blob.type) || inferMimeFromDataUrl(sourceSrc) || 'image/png';
+      const quality = mimeType === 'image/jpeg' ? (Number(qualityEl.value) || 0.9) : undefined;
+      const blob = await canvasToBlob(canvas, mimeType, quality);
+      const dataUrl = await blobToDataURL(blob);
+
+      if (item.url && !String(item.url).startsWith('data:') && item.url !== item._originalUrl) {
+        URL.revokeObjectURL(item.url);
+      }
+
+      item.blob = blob;
+      item.dataUrl = dataUrl;
+      item.url = URL.createObjectURL(blob);
+      item.width = canvas.width;
+      item.height = canvas.height;
+      item.size = blob.size;
+    }
+
+    function refreshItemEverywhere(item) {
+      previewImg.src = item.url;
+      imagePreviewInfo.textContent = `${item.width} × ${item.height}px｜${(item.size / 1024).toFixed(0)} KB`;
+
+      const card = findCardEl(item.id);
+      if (card) {
+        const cardImg = card.querySelector('.thumb img');
+        if (cardImg) cardImg.src = item.url;
+        const cardInfo = card.querySelector('.page-meta small');
+        if (cardInfo) cardInfo.textContent = `${item.width} × ${item.height}px｜${(item.size / 1024).toFixed(0)} KB`;
+        const cardDownload = card.querySelector('.page-meta a.button-link');
+        if (cardDownload) cardDownload.href = item.url;
+      }
+
+      saveConvertedFiles();
+    }
+
+    function setCropRect(rect) {
+      cropRectState = rect;
+      const wrapW = previewImgWrap.clientWidth;
+      const wrapH = previewImgWrap.clientHeight;
+      lastWrapSize = { w: wrapW, h: wrapH };
+
+      cropRectEl.style.left = `${rect.left}px`;
+      cropRectEl.style.top = `${rect.top}px`;
+      cropRectEl.style.width = `${rect.width}px`;
+      cropRectEl.style.height = `${rect.height}px`;
+
+      cropMaskTop.style.left = '0px';
+      cropMaskTop.style.top = '0px';
+      cropMaskTop.style.width = `${wrapW}px`;
+      cropMaskTop.style.height = `${Math.max(0, rect.top)}px`;
+
+      cropMaskBottom.style.left = '0px';
+      cropMaskBottom.style.top = `${rect.top + rect.height}px`;
+      cropMaskBottom.style.width = `${wrapW}px`;
+      cropMaskBottom.style.height = `${Math.max(0, wrapH - (rect.top + rect.height))}px`;
+
+      cropMaskLeft.style.left = '0px';
+      cropMaskLeft.style.top = `${rect.top}px`;
+      cropMaskLeft.style.width = `${Math.max(0, rect.left)}px`;
+      cropMaskLeft.style.height = `${rect.height}px`;
+
+      cropMaskRight.style.left = `${rect.left + rect.width}px`;
+      cropMaskRight.style.top = `${rect.top}px`;
+      cropMaskRight.style.width = `${Math.max(0, wrapW - (rect.left + rect.width))}px`;
+      cropMaskRight.style.height = `${rect.height}px`;
+    }
+
+    function resetCropRectToFull() {
+      const w = previewImg.clientWidth;
+      const h = previewImg.clientHeight;
+      if (!w || !h) return;
+      const item = convertedFiles[previewIndex];
+      const saved = item ? savedCropStates.get(item.id) : null;
+      if (saved) {
+        setCropRect({
+          left: saved.left * w,
+          top: saved.top * h,
+          width: saved.width * w,
+          height: saved.height * h
+        });
+      } else {
+        setCropRect({ left: 0, top: 0, width: w, height: h });
+      }
+    }
+
+    function saveCropStateForCurrentItem() {
+      if (previewIndex === -1 || !cropRectState || !lastWrapSize) return;
+      const item = convertedFiles[previewIndex];
+      if (!item || !lastWrapSize.w || !lastWrapSize.h) return;
+      savedCropStates.set(item.id, {
+        left: cropRectState.left / lastWrapSize.w,
+        top: cropRectState.top / lastWrapSize.h,
+        width: cropRectState.width / lastWrapSize.w,
+        height: cropRectState.height / lastWrapSize.h
+      });
+    }
+
+    async function updateGridThumbnailPreview() {
+      if (previewIndex === -1 || !cropRectState) return;
+      const item = convertedFiles[previewIndex];
+      if (!item) return;
+      const isFullImage = cropRectState.left === 0 && cropRectState.top === 0 &&
+        Math.abs(cropRectState.width - previewImg.clientWidth) < 1 &&
+        Math.abs(cropRectState.height - previewImg.clientHeight) < 1;
+      const card = findCardEl(item.id);
+      const cardImg = card ? card.querySelector('.thumb img') : null;
+      if (isFullImage) {
+        if (cropPreviewUrls.has(item.id)) {
+          URL.revokeObjectURL(cropPreviewUrls.get(item.id));
+          cropPreviewUrls.delete(item.id);
+        }
+        if (cardImg) cardImg.src = item.url;
+        return;
+      }
+      try {
+        const cropData = await getCurrentCropBlob(item);
+        if (cropData.isCropped) {
+          if (cropPreviewUrls.has(item.id)) {
+            URL.revokeObjectURL(cropPreviewUrls.get(item.id));
+          }
+          cropPreviewUrls.set(item.id, cropData.url);
+          if (cardImg) cardImg.src = cropData.url;
+        }
+      } catch (e) {
+        console.error('Failed to update thumbnail preview:', e);
+      }
+    }
+
+    function showPreviewAt(idx) {
+      previewIndex = idx;
+      const item = convertedFiles[idx];
+      imagePreviewTitle.textContent = `第 ${item.pageNumber} 頁`;
+      imagePreviewInfo.textContent = `${item.width} × ${item.height}px｜${(item.size / 1024).toFixed(0)} KB`;
+      previewPrevBtn.disabled = idx <= 0;
+      previewNextBtn.disabled = idx >= convertedFiles.length - 1;
+      previewImg.src = item.url;
+    }
+
+    previewImg.addEventListener('load', resetCropRectToFull);
+
+    function openImagePreview(id) {
+      const idx = findIndexById(id);
+      if (idx === -1) return;
+      imagePreviewModal.classList.remove('hidden');
+      showPreviewAt(idx);
+      document.addEventListener('keydown', handlePreviewKeydown);
+    }
+
+    function closeImagePreview() {
+      saveCropStateForCurrentItem();
+      imagePreviewModal.classList.add('hidden');
+      document.removeEventListener('keydown', handlePreviewKeydown);
+      previewIndex = -1;
+      cropRectState = null;
+      lastWrapSize = null;
+    }
+
+    function navigatePreview(delta) {
+      if (previewIndex === -1 || !convertedFiles.length) return;
+      const idx = clamp(previewIndex + delta, 0, convertedFiles.length - 1);
+      if (idx === previewIndex) return;
+      saveCropStateForCurrentItem();
+      showPreviewAt(idx);
+    }
+
+    function handlePreviewKeydown(event) {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        navigatePreview(-1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        navigatePreview(1);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        closeImagePreview();
+      }
+    }
+
+    function onCropHandlePointerDown(event) {
+      const dir = event.currentTarget.dataset.dir;
+      event.preventDefault();
+      event.stopPropagation();
+      cropDragState = {
+        dir,
+        startX: event.clientX,
+        startY: event.clientY,
+        rect: { ...cropRectState },
+        wrapW: previewImgWrap.clientWidth,
+        wrapH: previewImgWrap.clientHeight
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
+    function onCropHandlePointerMove(event) {
+      if (!cropDragState) return;
+      const dx = event.clientX - cropDragState.startX;
+      const dy = event.clientY - cropDragState.startY;
+      const { left, top, width, height } = cropDragState.rect;
+      const MIN = 24;
+      let right = left + width;
+      let bottom = top + height;
+      let newLeft = left;
+      let newTop = top;
+
+      if (cropDragState.dir.includes('n')) newTop = clamp(top + dy, 0, bottom - MIN);
+      if (cropDragState.dir.includes('s')) bottom = clamp(top + height + dy, top + MIN, cropDragState.wrapH);
+      if (cropDragState.dir.includes('w')) newLeft = clamp(left + dx, 0, right - MIN);
+      if (cropDragState.dir.includes('e')) right = clamp(left + width + dx, left + MIN, cropDragState.wrapW);
+
+      setCropRect({
+        left: newLeft,
+        top: newTop,
+        width: right - newLeft,
+        height: bottom - newTop
+      });
+    }
+
+    function onCropHandlePointerUp() {
+      if (cropDragState) {
+        saveCropStateForCurrentItem();
+        updateGridThumbnailPreview();
+      }
+      cropDragState = null;
+    }
+
+    cropRectEl.querySelectorAll('.crop-handle').forEach(handle => {
+      handle.addEventListener('pointerdown', onCropHandlePointerDown);
+    });
+    window.addEventListener('pointermove', onCropHandlePointerMove);
+    window.addEventListener('pointerup', onCropHandlePointerUp);
+
+    window.addEventListener('resize', () => {
+      if (imagePreviewModal.classList.contains('hidden') || !cropRectState || !lastWrapSize) return;
+      const curW = previewImgWrap.clientWidth;
+      const curH = previewImgWrap.clientHeight;
+      if (!curW || !curH) return;
+      const scaleX = curW / lastWrapSize.w;
+      const scaleY = curH / lastWrapSize.h;
+      setCropRect({
+        left: cropRectState.left * scaleX,
+        top: cropRectState.top * scaleY,
+        width: cropRectState.width * scaleX,
+        height: cropRectState.height * scaleY
+      });
+    });
+
+    imagePreviewClose.addEventListener('click', closeImagePreview);
+    imagePreviewModal.addEventListener('click', event => {
+      if (event.target === imagePreviewModal) closeImagePreview();
+    });
+    previewPrevBtn.addEventListener('click', () => navigatePreview(-1));
+    previewNextBtn.addEventListener('click', () => navigatePreview(1));
+
+    cropResetBtn.addEventListener('click', () => {
+      if (previewIndex === -1) return;
+      const item = convertedFiles[previewIndex];
+      savedCropStates.delete(item.id);
+      if (cropPreviewUrls.has(item.id)) {
+        URL.revokeObjectURL(cropPreviewUrls.get(item.id));
+        cropPreviewUrls.delete(item.id);
+      }
+      const card = findCardEl(item.id);
+      const cardImg = card ? card.querySelector('.thumb img') : null;
+      if (cardImg) cardImg.src = item.url;
+      const w = previewImg.clientWidth;
+      const h = previewImg.clientHeight;
+      if (w && h) setCropRect({ left: 0, top: 0, width: w, height: h });
+    });
+
+    previewCopyBtn.addEventListener('click', async () => {
+      if (previewIndex === -1) return;
+      const item = convertedFiles[previewIndex];
+      const originalText = previewCopyBtn.textContent;
+      previewCopyBtn.disabled = true;
+      previewCopyBtn.textContent = '複製中...';
+      let cropData = null;
+      try {
+        cropData = await getCurrentCropBlob(item);
+        const tempItem = { ...item, blob: cropData.blob, dataUrl: cropData.dataUrl, url: cropData.url, width: cropData.width, height: cropData.height };
+        await copyItemsToClipboard([tempItem]);
+      } finally {
+        if (cropData && cropData.isCropped) URL.revokeObjectURL(cropData.url);
+        previewCopyBtn.textContent = originalText;
+        previewCopyBtn.disabled = false;
+      }
+    });
+
+    previewDownloadBtn.addEventListener('click', async () => {
+      if (previewIndex === -1) return;
+      const item = convertedFiles[previewIndex];
+      const originalText = previewDownloadBtn.textContent;
+      previewDownloadBtn.disabled = true;
+      previewDownloadBtn.textContent = '處理中...';
+      let cropData = null;
+      try {
+        cropData = await getCurrentCropBlob(item);
+        const tempItem = { ...item, blob: cropData.blob, dataUrl: cropData.dataUrl, url: cropData.url, width: cropData.width, height: cropData.height };
+        if (isAppleDevice) {
+          const mode = await openAppleSaveChoice(1);
+          if (mode === 'files') triggerFileDownload(tempItem);
+          else if (mode === 'photos') await shareItemsToPhotos([tempItem]);
+        } else {
+          triggerFileDownload(tempItem);
+        }
+      } finally {
+        if (cropData && cropData.isCropped) URL.revokeObjectURL(cropData.url);
+        previewDownloadBtn.textContent = originalText;
+        previewDownloadBtn.disabled = false;
+      }
+    });
+
     selectModeBtn.addEventListener('click', () => {
       if (!convertedFiles.length) return;
       setSelectMode(!isSelectMode);
+    });
+
+    selectAllBtn.addEventListener('click', () => {
+      if (!convertedFiles.length || !isSelectMode) return;
+      const allSelected = selectedIds.size === convertedFiles.length;
+      if (allSelected) {
+        selectedIds.clear();
+      } else {
+        convertedFiles.forEach(item => selectedIds.add(item.id));
+      }
+      previewGrid.querySelectorAll('.page-card').forEach(card => {
+        card.classList.toggle('selected', selectedIds.has(card.dataset.id));
+      });
+      updateResultState();
     });
 
     appleSaveModal.addEventListener('click', event => {
@@ -1366,42 +2120,60 @@
     });
 
     copyAllBtn.addEventListener('click', async () => {
-      if (!convertedFiles.length) return;
+      const items = isSelectMode
+        ? convertedFiles.filter(item => selectedIds.has(item.id))
+        : convertedFiles;
+      if (!items.length) return;
       copyAllBtn.disabled = true;
       const originalText = copyAllBtn.textContent;
       copyAllBtn.textContent = '複製中...';
 
+      const croppedItems = [];
       try {
-        await copyItemsToClipboard(convertedFiles);
+        for (const item of items) {
+          const cropData = await getItemWithCrop(item);
+          croppedItems.push({ original: item, cropData, tempItem: { ...item, blob: cropData.blob, dataUrl: cropData.dataUrl, url: cropData.url, width: cropData.width, height: cropData.height } });
+        }
+        await copyItemsToClipboard(croppedItems.map(c => c.tempItem));
       } finally {
+        croppedItems.forEach(c => { if (c.cropData.isCropped) URL.revokeObjectURL(c.cropData.url); });
         copyAllBtn.textContent = originalText;
         copyAllBtn.disabled = false;
       }
     });
 
     downloadAllBtn.addEventListener('click', async () => {
-      if (!convertedFiles.length) return;
+      const items = isSelectMode
+        ? convertedFiles.filter(item => selectedIds.has(item.id))
+        : convertedFiles;
+      if (!items.length) return;
       downloadAllBtn.disabled = true;
       const originalText = downloadAllBtn.textContent;
       downloadAllBtn.textContent = '下載中...';
 
+      const croppedItems = [];
       try {
         let mode = 'files';
         if (isAppleDevice) {
-          mode = await openAppleSaveChoice(convertedFiles.length);
+          mode = await openAppleSaveChoice(items.length);
           if (mode === 'cancel') return;
         }
 
-        if (mode === 'photos') {
-          await shareItemsToPhotos(convertedFiles);
-          return;
+        for (const item of items) {
+          const cropData = await getItemWithCrop(item);
+          croppedItems.push({ original: item, cropData, tempItem: { ...item, blob: cropData.blob, dataUrl: cropData.dataUrl, url: cropData.url, width: cropData.width, height: cropData.height } });
         }
 
-        for (const item of convertedFiles) {
-          triggerFileDownload(item);
-          await new Promise(resolve => setTimeout(resolve, 120));
+        if (mode === 'photos') {
+          await shareItemsToPhotos(croppedItems.map(c => c.tempItem));
+        } else {
+          for (const c of croppedItems) {
+            triggerFileDownload(c.tempItem);
+            await new Promise(resolve => setTimeout(resolve, 120));
+          }
         }
       } finally {
+        croppedItems.forEach(c => { if (c.cropData.isCropped) URL.revokeObjectURL(c.cropData.url); });
         downloadAllBtn.textContent = originalText;
         downloadAllBtn.disabled = false;
       }
