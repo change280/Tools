@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>被時間重新上色的自由｜最終版講稿</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #141210; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    #__bundler_loading { position: fixed; bottom: 20px; right: 20px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; color: #666; background: #fff; padding: 8px 14px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); z-index: 10000; }
+    #__bundler_thumbnail { position: fixed; inset: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #141210; z-index: 9999; }
+    #__bundler_thumbnail svg { width: 100%; height: 100%; object-fit: contain; }
+    #__bundler_placeholder { color: #999; font-size: 14px; }
+  </style>
+  <noscript>
+    <style>#__bundler_loading { display: none; }</style>
+    <div style="position:fixed;bottom:12px;left:12px;font:13px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;color:#999;background:rgba(255,255,255,0.9);padding:6px 12px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.08);z-index:10000;">
+      This page requires JavaScript to display.
+    </div>
+  </noscript>
+</head>
+<body>
+  <div id="__bundler_thumbnail"><svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="400" fill="#141210"></rect><rect x="120" y="120" width="54" height="160" fill="#2B4A8B"></rect><rect x="174" y="120" width="54" height="160" fill="#F2ECE0"></rect><rect x="228" y="120" width="54" height="160" fill="#C2412D"></rect></svg></div>
+  <div id="__bundler_loading">Unpacking...</div>
+
+  <script>
+    
+document.addEventListener('DOMContentLoaded', async function() {
+  const loading = document.getElementById('__bundler_loading');
+  function setStatus(msg) { if (loading) loading.textContent = msg; }
+
+  const FONT_MIME = /^(font[/]|application[/](x-)?font-|application[/]vnd\.ms-fontobject)/i;
+  const MIME_TOKEN = /^[\w.+-]+[/][\w.+-]+$/;
+  function toBase64(bytes) {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin);
+  }
+
+  // Error sink persists across replaceWith since it's on window, not the DOM.
+  window.addEventListener('error', function(e) {
+    // Failed resource loads (CSP-blocked links, scripts, images) fire plain
+    // events at the element — warn only; real JS errors carry message/error.
+    if (!e.message && !e.error && e.target && e.target !== window) {
+      console.warn('[bundle] resource failed to load:',
+        e.target.tagName, String(e.target.src || e.target.href || ''));
+      return;
+    }
+    var p = document.body || document.documentElement;
+    var d = document.getElementById('__bundler_err') || p.appendChild(document.createElement('div'));
+    d.id = '__bundler_err';
+    d.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;font:12px/1.4 ui-monospace,monospace;background:#2a1215;color:#ff8a80;padding:10px 14px;border-radius:8px;border:1px solid #5c2b2e;z-index:99999;white-space:pre-wrap;max-height:40vh;overflow:auto';
+    d.textContent = (d.textContent ? d.textContent + String.fromCharCode(10) : '') +
+      '[bundle] ' + (e.message || e.type) +
+      (e.filename ? ' (' + e.filename.slice(0, 60) + ':' + e.lineno + ')' : '');
+  }, true);
+
+  try {
+    const manifestEl = document.querySelector('script[type="__bundler/manifest"]');
+    const templateEl = document.querySelector('script[type="__bundler/template"]');
+    if (!manifestEl || !templateEl) {
+      setStatus('Error: missing bundle data');
+      console.error('[bundler] Missing script tags — manifestEl:', !!manifestEl, 'templateEl:', !!templateEl);
+      return;
+    }
+
+    const manifest = JSON.parse(manifestEl.textContent);
+    let template = JSON.parse(templateEl.textContent);
+
+    // Nested page bundles (iframe targets). Each ships ONCE, in the ROOT
+    // document's manifest; frame srcs carry an about:blank#<uuid> marker
+    // instead of a substitutable uuid. Every document mints the blobs for
+    // its OWN frames — from local text at the root, or text obtained from
+    // its DIRECT parent over the relay protocol below — so each frame
+    // navigation stays same-origin with its initiator and a deduped page
+    // loads at any depth on any host, including a file:// download's
+    // opaque origins (where a blob minted by one document cannot be
+    // navigated to by another).
+    const pageOrderEl = document.querySelector('script[type="__bundler/page_order"]');
+    const pageOrder = pageOrderEl ? JSON.parse(pageOrderEl.textContent) : [];
+    const pageSet = new Set(pageOrder);
+    const pageTexts = {};
+
+    // ── Nested-page text protocol (parent-chain relay) ──
+    // Page bundles ship once, in the ROOT document's manifest. Every
+    // document mints the blobs for its OWN frames, obtaining page text
+    // through a strict parent-chain relay: a document only ever SENDS to
+    // its direct parent (which, for every document the publisher's own
+    // runtime minted, is another publisher document) and only ACCEPTS
+    // text from that direct parent; requests from below are honored only
+    // for the document's own child frames, and the ROOT never sends
+    // upward at all. That last rule is load-bearing: the artifact host's
+    // frame-ancestors allows claude.ai (and friends) to frame an
+    // artifact, so window.top can be a FOREIGN document — a top-addressed
+    // protocol would hand page uuids to that ancestor and accept forged
+    // "page text" from it, minting attacker HTML as an artifact-origin
+    // blob document. The chain never touches the ancestor: requests stop
+    // at the root, replies are origin-addressed per hop (never '*' when
+    // an origin exists), and both directions are origin-gated (on https
+    // a foreign sender's origin can never equal this document's; in
+    // opaque contexts — file:// — everything serializes as 'null', where
+    // an embedded EXTERNAL frame still fails the gate by carrying its
+    // own real origin, and a sandboxed child of such a frame is excluded
+    // by the own-child-frames check plus uuid unguessability). Shape is
+    // deny-by-default: one request form, one reply form, no error
+    // replies.
+    // window.origin is the SERIALIZED SECURITY origin ('null' in opaque
+    // contexts such as a sandboxed preview iframe) — location.origin is
+    // computed from the URL and stays 'https://…' even when the document
+    // is sandboxed, which would misgate every opaque chain.
+    const OWN_TARGET = /^https?:[/][/]/.test(window.origin || '')
+      ? window.origin
+      : '*';
+    function trustedOrigin(e) {
+      if (e.origin === window.origin) return true; // https chains; opaque==opaque
+      // file:// trees: Chrome serializes the file document's origin as
+      // 'file://' while the blob: documents it mints serialize as 'null',
+      // so the two legitimate shapes can never string-match — accept the
+      // pair in both directions. https origins never serialize as either,
+      // and sender identity (own child frame / direct parent) is checked
+      // separately.
+      return (
+        (e.origin === 'null' &&
+          (window.origin === 'file://' ||
+            window.location.protocol === 'file:')) ||
+        (/^file:/.test(e.origin) && window.origin === 'null')
+      );
+    }
+    // Non-empty only in the root document (nested bundles ship an empty
+    // island), so it doubles as the root marker: the root answers from
+    // local text and treats a miss as authoritative — never relaying to
+    // its (possibly foreign) parent.
+    const isPageRoot = pageOrder.length > 0;
+    const blobUrls = {};
+    const resourceBlobs = {};
+    const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    const pendingFrames = {}; // uuid -> [{el, frag}] awaiting text for own frames
+    const pendingRelays = {}; // uuid -> [childWindow] awaiting text to pass down
+    function mountPage(el, frag, text) {
+      const pageBlob = new Blob([text], { type: 'text/html' });
+      const u = URL.createObjectURL(pageBlob);
+      resourceBlobs[u] = pageBlob;
+      el.src = u + frag;
+    }
+    function deliverPage(uuid, text) {
+      const frames = pendingFrames[uuid];
+      delete pendingFrames[uuid];
+      if (frames) for (const f of frames) mountPage(f.el, f.frag, text);
+      const relays = pendingRelays[uuid];
+      delete pendingRelays[uuid];
+      if (relays) {
+        for (const cw of relays) {
+          try { cw.postMessage({ __bundler_page: uuid, __bundler_text: text }, OWN_TARGET); } catch (err) { /* gone */ }
+        }
+      }
+    }
+    function ownFrameWindows() {
+      const out = [];
+      for (const f of Array.from(document.querySelectorAll('iframe'))) {
+        try { if (f.contentWindow) out.push(f.contentWindow); } catch (err) { /* detached */ }
+      }
+      return out;
+    }
+    window.addEventListener('message', function (e) {
+      const d = e.data;
+      if (!d || typeof d !== 'object' || !e.source) return;
+      // Origin gate first; the structural checks below (own-child-frames
+      // for requests, direct-parent + solicited-uuid for replies, the
+      // root's never-relay rule) are what hold in fully opaque chains
+      // where origin strings can't discriminate — a sandboxed root's
+      // FOREIGN wrapper still fails all three even though both serialize
+      // as real-vs-'null' rather than matching.
+      if (!trustedOrigin(e)) return;
+      if (typeof d.__bundler_need === 'string' && UUID_SHAPE.test(d.__bundler_need)) {
+        // Requests are honored only for this document's own child frames.
+        if (ownFrameWindows().indexOf(e.source) < 0) return;
+        const uuid = d.__bundler_need;
+        const text = pageTexts[uuid];
+        if (typeof text === 'string') {
+          try { e.source.postMessage({ __bundler_page: uuid, __bundler_text: text }, OWN_TARGET); } catch (err) { /* gone */ }
+          return;
+        }
+        if (isPageRoot || window.parent === window) return; // authoritative miss
+        const waiting = pendingRelays[uuid];
+        if (waiting) {
+          if (waiting.indexOf(e.source) < 0) waiting.push(e.source);
+          return;
+        }
+        // Never-answered uuids would otherwise accumulate forever under a
+        // request spray; past the cap (far above any real page count) new
+        // relays are dropped rather than remembered.
+        if (Object.keys(pendingRelays).length >= 128) return;
+        pendingRelays[uuid] = [e.source];
+        window.parent.postMessage({ __bundler_need: uuid }, OWN_TARGET);
+      } else if (
+        typeof d.__bundler_page === 'string' &&
+        UUID_SHAPE.test(d.__bundler_page) &&
+        typeof d.__bundler_text === 'string'
+      ) {
+        // The shape test is load-bearing beyond tidiness: the solicited
+        // check below uses the in operator, which matches prototype keys
+        // ('__proto__', 'constructor') — an unshaped key would reach
+        // deliverPage and throw, painting the error banner.
+        // Text is accepted only from the direct parent — the document
+        // that minted this one.
+        if (e.source !== window.parent || window.parent === window) return;
+        if (!(d.__bundler_page in pendingFrames) && !(d.__bundler_page in pendingRelays)) return;
+        deliverPage(d.__bundler_page, d.__bundler_text);
+      }
+    });
+
+    const uuids = Object.keys(manifest);
+    setStatus('Unpacking ' + uuids.length + ' assets...');
+
+    await Promise.all(uuids.map(async (uuid) => {
+      const entry = manifest[uuid];
+      try {
+        const binaryStr = atob(entry.data);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+        let finalBytes = bytes;
+        if (entry.compressed) {
+          if (typeof DecompressionStream !== 'undefined') {
+            const ds = new DecompressionStream('gzip');
+            const writer = ds.writable.getWriter();
+            const reader = ds.readable.getReader();
+            writer.write(bytes);
+            writer.close();
+            const chunks = [];
+            let totalLen = 0;
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+              totalLen += value.length;
+            }
+            finalBytes = new Uint8Array(totalLen);
+            let offset = 0;
+            for (const chunk of chunks) { finalBytes.set(chunk, offset); offset += chunk.length; }
+          } else {
+            console.warn('DecompressionStream not available, asset ' + uuid + ' may not render');
+          }
+        }
+
+        if (pageSet.has(uuid)) {
+          pageTexts[uuid] = new TextDecoder().decode(finalBytes);
+          return;
+        }
+        if (FONT_MIME.test(entry.mime) && MIME_TOKEN.test(entry.mime)) {
+          // Strict artifact hosts allow font-src data: but not blob:.
+          blobUrls[uuid] = 'data:' + entry.mime + ';base64,' +
+            (entry.compressed ? toBase64(finalBytes) : entry.data);
+        } else {
+          const blob = new Blob([finalBytes], { type: entry.mime });
+          blobUrls[uuid] = URL.createObjectURL(blob);
+          resourceBlobs[blobUrls[uuid]] = blob;
+        }
+      } catch (err) {
+        console.error('Failed to decode asset ' + uuid + ':', err);
+        const blob = new Blob([], { type: entry.mime });
+        blobUrls[uuid] = URL.createObjectURL(blob);
+        resourceBlobs[blobUrls[uuid]] = blob;
+      }
+    }));
+
+    const extResEl = document.querySelector('script[type="__bundler/ext_resources"]');
+    const extResources = extResEl ? JSON.parse(extResEl.textContent) : [];
+    const resourceMap = {};
+    for (const entry of extResources) {
+      if (blobUrls[entry.uuid]) resourceMap[entry.id] = blobUrls[entry.uuid];
+    }
+
+    // Artifact-host CSP (connect-src 'self') refuses fetch() of blob: URLs —
+    // consumers read these Blobs directly. Survives the swap like the error sink.
+    window.__resourceBlobs = resourceBlobs;
+
+    setStatus('Rendering...');
+    // Page uuids have no blob here — they ride inside about:blank#<uuid>
+    // frame markers the pass below resolves after the swap.
+    for (const uuid of uuids) {
+      if (pageSet.has(uuid)) continue;
+      template = template.split(uuid).join(blobUrls[uuid]);
+    }
+
+    // Strip integrity + crossorigin — blob URLs from a file:// document inherit
+    // a null origin, so crossorigin forces a CORS fetch that SRI then rejects.
+    // The manifest bytes are ours; SRI protects against CDN compromise, not this.
+    template = template.replace(/\s+integrity="[^"]*"/gi, '').replace(/\s+crossorigin="[^"]*"/gi, '');
+
+    const resourceScript = '<script>window.__resources = ' +
+      JSON.stringify(resourceMap).replace(/<\//g, '<\\/') +
+      ';</' + 'script>';
+    // Inject after <head> so the DOCTYPE stays first; prepending the script
+    // would push the parser into quirks mode. DOMParser always emits a <head>
+    // (synthesizing one if the source HTML omitted it) but may carry
+    // attributes through, so match the full opening tag. slice() rather than
+    // replace() keeps us clear of $-pattern substitution in resourceScript.
+    const headOpen = template.match(/<head[^>]*>/i);
+    if (headOpen) {
+      const i = headOpen.index + headOpen[0].length;
+      template = template.slice(0, i) + resourceScript + template.slice(i);
+    }
+
+    // Parse the template and swap the root element. Scripts inserted via
+    // DOMParser/replaceWith are inert per spec — re-create each with
+    // createElement so they execute, awaiting onload for src scripts to
+    // preserve ordering (React before ReactDOM before Babel before text/babel).
+    const doc = new DOMParser().parseFromString(template, 'text/html');
+    document.documentElement.replaceWith(doc.documentElement);
+
+    // Resolve page-frame markers: mint this document's own blob for each
+    // framed page — from local text when this is the root, otherwise by
+    // asking the direct parent over the relay protocol above. An
+    // unanswered request leaves the frame on about:blank, the same
+    // degraded state as a refused embed.
+    {
+      const MARKER = /^about:blank#([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(#.*)?$/;
+      const needed = [];
+      for (const el of Array.from(document.querySelectorAll('iframe'))) {
+        const m = MARKER.exec(el.getAttribute('src') || '');
+        if (!m) continue;
+        const text = pageTexts[m[1]];
+        if (typeof text === 'string') {
+          mountPage(el, m[2] || '', text);
+        } else if (window.parent !== window && !isPageRoot) {
+          const had = pendingFrames[m[1]];
+          (pendingFrames[m[1]] = had || []).push({ el: el, frag: m[2] || '' });
+          if (!had) needed.push(m[1]);
+        }
+      }
+      for (const uuid of needed) {
+        window.parent.postMessage({ __bundler_need: uuid }, OWN_TARGET);
+      }
+    }
+
+    const dead = Array.from(document.scripts);
+    for (const old of dead) {
+      const s = document.createElement('script');
+      for (const a of old.attributes) s.setAttribute(a.name, a.value);
+      s.textContent = old.textContent;
+      // text/babel scripts with a src: read and inline. transformScriptTags
+      // does XHR against the src, but blob:null/ from a file:// origin is
+      // silently dropped. Inlining makes it a plain inline babel script,
+      // which transformScriptTags handles unconditionally.
+      if ((s.type === 'text/babel' || s.type === 'text/jsx') && s.src) {
+        const pre = resourceBlobs[s.src.split('#')[0]];
+        s.textContent = pre ? await pre.text() : await (await fetch(s.src)).text();
+        s.removeAttribute('src');
+      }
+      const p = s.src ? new Promise(function(r) { s.onload = s.onerror = r; }) : null;
+      old.replaceWith(s);
+      if (p) await p;
+    }
+    // Babel standalone auto-transforms type=text/babel on DOMContentLoaded,
+    // which fired before we swapped the document. Trigger manually if present.
+    if (window.Babel && typeof window.Babel.transformScriptTags === 'function') {
+      window.Babel.transformScriptTags();
+    }
+  } catch (err) {
+    setStatus('Error unpacking: ' + err.message);
+    console.error('Bundle unpack error:', err);
+  }
+});
+
+  </script>
+
+  <script type="__bundler/manifest">
+{}
+  </script>
+
+  <script type="__bundler/ext_resources">
+[]
+  </script>
+
+  <script type="__bundler/page_order">
+[]
+  </script>
+
+  <script type="__bundler/template">
+"<!DOCTYPE html>\n<html lang=\"zh-Hant\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>被時間重新上色的自由｜最終版講稿<\u002Ftitle>\n<style>\nbody{margin:0;background:#141210;color:#E8E2D6;font:400 18px/1.95 'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;}\nmain{max-width:760px;margin:0 auto;padding:72px 24px 120px;}\nh1{font:900 clamp(32px,5vw,48px)/1.2 'Noto Serif TC','Songti TC','PMingLiU',serif;color:#F2ECE0;margin:0 0 16px;}\nh2{display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;font:900 28px/1.3 'Noto Serif TC','Songti TC','PMingLiU',serif;color:#F2ECE0;margin:56px 0 16px;padding-top:24px;border-top:1px solid #3A3631;}\nh2 .n{font:500 16px 'IBM Plex Mono',Menlo,Consolas,monospace;color:#C2412D;letter-spacing:.12em;}\nh2 .d{font:500 15px 'IBM Plex Mono',Menlo,Consolas,monospace;color:#9E978A;margin-left:auto;}\np{margin:0 0 16px;text-wrap:pretty;}\np.cue{color:#9E978A;font-size:16px;}\n.sub{font:500 18px/1.5 'Noto Serif TC',serif;color:#CFC8BA;margin:-6px 0 16px;}\nh3{font:700 20px/1.4 'Noto Serif TC',serif;color:#C2412D;margin:28px 0 8px;}\n.a{display:inline-block;font:500 12px/1 'IBM Plex Mono',monospace;color:#F2ECE0;border:1px solid #9E978A;padding:3px 6px;margin-right:8px;vertical-align:3px;}\nhr{border:0;border-top:1px solid #3A3631;margin:32px 0;}\nstrong{color:#F2ECE0;font-weight:500;}\ncode{font:500 15px 'IBM Plex Mono',Menlo,Consolas,monospace;color:#CFC8BA;}\n.p{display:inline-block;font:500 12px/1 'IBM Plex Mono',Menlo,Consolas,monospace;color:#141210;background:#C2412D;padding:4px 6px;margin-right:8px;vertical-align:3px;}\na{color:#E8E2D6;}a:hover{color:#C2412D;}\n@media print{body{background:#fff;color:#1E1B18;}h1,h2,strong{color:#1E1B18;}.p{color:#fff;}}\n<\u002Fstyle><\u002Fhead><body>\n\n<main><h1>《被時間重新上色的自由》<\u002Fh1>\n<p class=\"sub\">德拉克洛瓦、浪漫主義，以及我們如何觀看一幅畫<\u002Fp>\n<p>約 13–15 分鐘｜對應 <code>Delacroix Deck v2.dc.html<\u002Fcode>（共 20 張，第 19–20 張為來源頁，不講）<br><span class=\"p\">P<\u002Fspan>＝保留個人觀看感受　<span class=\"a\">動畫<\u002Fspan>＝等畫面動作完成再開口<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 1 張<\u002Fspan><span class=\"t\">封面<\u002Fspan><span class=\"d\">0:20<\u002Fspan><\u002Fh2>\n<p class=\"sub\">被時間重新上色的自由<\u002Fp>\n<p>大家好，今天我要介紹的是歐仁・德拉克洛瓦。<\u002Fp>\n<p>他是十九世紀法國浪漫主義最重要的畫家之一。<\u002Fp>\n<p>但今天我不太想把這份報告做成「畫家生平＋代表作介紹」。<\u002Fp>\n<p>我比較想從一幅大家幾乎都看過的畫開始，去問一個問題：<\u002Fp>\n<p><strong>我們真的看見了一幅畫原本的樣子嗎？<\u002Fstrong><\u002Fp>\n<hr>\n<h2><span class=\"n\">第 2 張<\u002Fspan><span class=\"t\">兩種「記錯」<\u002Fspan><span class=\"d\"><\u002Fspan><\u002Fh2>\n<p class=\"sub\"><strong>建議時間｜0:45<\u002Fstrong><\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>紅線掃過、畫面換成修復前的版本，文字浮出後再開口。<\u002Fp>\n<p>這幅畫大家應該都不陌生。<\u002Fp>\n<p>就算不知道名字，我們可能也看過這個形象：<\u002Fp>\n<p>一個女人高舉法國三色旗，帶著人群跨過街壘往前走。<\u002Fp>\n<p><span class=\"p\">P<\u002Fspan>我第一次看到它的時候，最先注意到的就是中間這個女人。<\u002Fp>\n<p>而且老實說，我以前一直以為，它畫的是我們最熟悉的 <strong>1789 年法國大革命<\u002Fstrong>。<\u002Fp>\n<p>直到準備這次報告，我才發現我對它其實有兩種「記錯」。<\u002Fp>\n<p>第一個是歷史上的：<\u002Fp>\n<p><strong>它畫的不是 1789 年。<\u002Fstrong><\u002Fp>\n<p>第二個則更有意思：<\u002Fp>\n<p><strong>它的顏色，也不完全是當年的樣子。<\u002Fstrong><\u002Fp>\n<p>大家現在看到的，是 2024 年修復之前的版本。<\u002Fp>\n<p>所以今天我真正想談的是：<\u002Fp>\n<p><strong>當一件作品經過兩百年，我們現在看到的，究竟只是藝術家的作品，還是藝術家、時間與觀看者共同形成的版本？<\u002Fstrong><\u002Fp>\n<hr>\n<h2><span class=\"n\">第 3 張<\u002Fspan><span class=\"t\">德拉克洛瓦出生的世界<\u002Fspan><span class=\"d\"><\u002Fspan><\u002Fh2>\n<p class=\"sub\"><strong>建議時間｜0:40<\u002Fstrong><\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>畫作縮成時間軸上「1798」的紅點。<\u002Fp>\n<p>德拉克洛瓦出生於 1798 年。<\u002Fp>\n<p>這個年份其實很重要。<\u002Fp>\n<p>因為法國大革命才剛發生不到十年。<\u002Fp>\n<p>接下來的法國又經歷拿破崙帝國、戰爭、政權更替，到 1815 年波旁王朝復辟。<\u002Fp>\n<p>所以德拉克洛瓦長大的世界其實非常不穩定。<\u002Fp>\n<p>政治上一直在問：<\u002Fp>\n<p><strong>革命之後，新的秩序應該長什麼樣子？<\u002Fstrong><\u002Fp>\n<p>而當時藝術界最具權威的一個回答，就是——<\u002Fp>\n<p class=\"cue\">（翻頁）<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 4 張<\u002Fspan><span class=\"t\">秩序<\u002Fspan><span class=\"d\"><\u002Fspan><\u002Fh2>\n<p class=\"sub\"><strong>建議時間｜1:00<\u002Fstrong><\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>時間線拉動新古典畫作串，約 8 秒。跑馬燈經過時可以邊講第一段。<\u002Fp>\n<p><strong>新古典主義。<\u002Fstrong><\u002Fp>\n<p>大家現在看到經過的這幾幅畫：孟斯、維安、考夫曼、吉羅代、傑拉爾——<\u002Fp>\n<p>從羅馬、到法國、到英國，十八世紀後半整個歐洲都在「回到古希臘羅馬」。<\u002Fp>\n<p>最後停下來的這一幅，是這股潮流最標準的範本：<\u002Fp>\n<p>賈克－路易・大衛 1784 年的《荷拉斯兄弟之誓》。<\u002Fp>\n<p>我們可以先不要管故事，只看它怎麼讓我們觀看。<\u002Fp>\n<p>人物輪廓非常清楚。<\u002Fp>\n<p>三個拱門把畫面切成穩定區域。<\u002Fp>\n<p>男人的身體像古典雕像。<\u002Fp>\n<p>手臂、劍、視線都有明確方向。<\u002Fp>\n<p>即使它充滿情緒，情緒還是被非常穩定的結構控制著。<\u002Fp>\n<p>這就是新古典主義很重要的一種美學：<\u002Fp>\n<p><strong>素描、清楚、比例、秩序、理性。<\u002Fstrong><\u002Fp>\n<p>先記得這種「控制」。<\u002Fp>\n<p>因為接下來的德拉克洛瓦，會一直測試：<\u002Fp>\n<p><strong>藝術到底需要控制到什麼程度？<\u002Fstrong><\u002Fp>\n<hr>\n<h2><span class=\"n\">第 5 張<\u002Fspan><span class=\"t\">浪漫主義不是「浪漫」<\u002Fspan><span class=\"d\"><\u002Fspan><\u002Fh2>\n<p class=\"sub\"><strong>建議時間｜0:55<\u002Fstrong><\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>「秩序」移到中央，兩側浮出「理性」「規則」，停一秒後被紅線劃掉。可以等劃線的那一刻再說下面這句。<\u002Fp>\n<p>當啟蒙時代不斷強調<strong>理性、秩序、規則<\u002Fstrong>之後——<\u002Fp>\n<p>有一批藝術家開始把它們劃掉，重新追問：<\u002Fp>\n<p>那人的想像呢？<\u002Fp>\n<p>恐懼呢？<\u002Fp>\n<p>激情呢？<\u002Fp>\n<p>死亡、自然，以及那些不能被理性完全控制的經驗呢？<\u002Fp>\n<p>這就是浪漫主義。<\u002Fp>\n<p>這裡的「浪漫」，和愛情其實沒有太大關係。<\u002Fp>\n<p>它大約在十八世紀末形成，在十九世紀前半達到高峰，不只發生在繪畫，也出現在文學、詩、戲劇和音樂。<\u002Fp>\n<p>所以浪漫主義並不是單純「不要規則」。<\u002Fp>\n<p>而是開始相信：<\u002Fp>\n<p><strong>人的主觀感受，也值得成為藝術的中心。<\u002Fstrong><\u002Fp>\n<p>後來波特萊爾形容浪漫主義時，用了一個很精準的說法：<\u002Fp>\n<p>它不在於題材的選擇，而在於 <strong>「感受的方式」<\u002Fstrong>。<\u002Fp>\n<p>這一句，等一下會重新回到《自由引導人民》的修復上。<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 6 張<\u002Fspan><span class=\"t\">線條，還是色彩？<\u002Fspan><span class=\"d\"><\u002Fspan><\u002Fh2>\n<p class=\"sub\"><strong>建議時間｜1:00<\u002Fstrong><\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>浪漫主義畫作串由左跑到右，約 8 秒；接著左側安格爾推入，最後文字浮出。<\u002Fp>\n<p>這股感受的方式，也在整個歐洲蔓延：<\u002Fp>\n<p>英國的富塞利畫夢魘，法國的格羅和傑利柯畫病痛和躍起的戰馬，西班牙的哥雅畫槍決，德國的弗里德里希畫霧海。<\u002Fp>\n<p>而最後停下來的這一幅，是德拉克洛瓦的《薩達那培拉斯之死》。<\u002Fp>\n<p>到了十九世紀，這種差異甚至變成一場著名的美術爭論：<\u002Fp>\n<p><strong>線條重要，還是色彩重要？<\u002Fstrong><\u002Fp>\n<p class=\"cue\">（等左圖推入）<\u002Fp>\n<p>1827 年巴黎沙龍，安格爾展出《荷馬的神化》。<\u002Fp>\n<p>人物清楚、秩序穩定，古典世界幾乎被安排得像一座神殿。<\u002Fp>\n<p>同一屆沙龍，德拉克洛瓦帶來的卻是這幅《薩達那培拉斯之死》。<\u002Fp>\n<p>身體互相交疊、紅色大量蔓延、視線沒有穩定停留的位置。<\u002Fp>\n<p>所以當時觀眾看到的不只是兩幅畫。<\u002Fp>\n<p>而像是看到兩種「繪畫應該怎麼感動人」的答案。<\u002Fp>\n<p>一邊相信：<\u002Fp>\n<p><strong>先讓世界清楚。<\u002Fstrong><\u002Fp>\n<p>另一邊逐漸相信：<\u002Fp>\n<p><strong>也可以先讓你感受到。<\u002Fstrong><\u002Fp>\n<hr>\n<h2><span class=\"n\">第 7 張<\u002Fspan><span class=\"t\">他其實從傳統裡長出來<\u002Fspan><span class=\"d\"><\u002Fspan><\u002Fh2>\n<p class=\"sub\"><strong>建議時間｜0:40<\u002Fstrong><\u002Fp>\n<p>但這裡有一件很重要的事：<\u002Fp>\n<p>德拉克洛瓦並不是一開始就在學院外面反抗。<\u002Fp>\n<p>恰恰相反，他接受過非常正式的學院訓練。<\u002Fp>\n<p>1815 年，他進入畫家蓋蘭（Pierre-Narcisse Guérin）的工作室；1817 年進入巴黎美術學院。<\u002Fp>\n<p>他也不停研究過去的大師，尤其是魯本斯和威尼斯畫派的色彩。<\u002Fp>\n<p>1825 年他到英國旅行；<\u002Fp>\n<p>1832 年又前往北非與摩洛哥，之後留下大量色彩、服飾與光線的研究。<\u002Fp>\n<p>而在蓋蘭的工作室裡，他認識了比自己年長七歲的傑利柯——<\u002Fp>\n<p class=\"cue\">（翻頁）<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 8 張<\u002Fspan><span class=\"t\">《梅杜薩之筏》<\u002Fspan><span class=\"d\"><\u002Fspan><\u002Fh2>\n<p class=\"sub\"><strong>建議時間｜0:25<\u002Fstrong><\u002Fp>\n<p>這是傑利柯 1819 年的《梅杜薩之筏》。<\u002Fp>\n<p>那種死亡、災難、巨大的身體和情緒張力，對德拉克洛瓦影響很深。<\u002Fp>\n<p>據說年輕的德拉克洛瓦還為畫中的人物當過模特兒。<\u002Fp>\n<p>所以我覺得理解德拉克洛瓦最好的方式不是：<\u002Fp>\n<p>「他拒絕傳統。」<\u002Fp>\n<p>而是：<\u002Fp>\n<p><strong>他從傳統裡，選擇了另一條可能。<\u002Fstrong><\u002Fp>\n<hr>\n<h2><span class=\"n\">第 9 張<\u002Fspan><span class=\"t\">還在規矩裡，顏色已經開始燃燒<\u002Fspan><span class=\"d\">0:40<\u002Fspan><\u002Fh2>\n<p class=\"sub\">《但丁之舟》，1822<\u002Fp>\n<p>1822 年，二十四歲的德拉克洛瓦第一次參加巴黎沙龍。<\u002Fp>\n<p>作品就是《但丁之舟》。<\u002Fp>\n<p>題材來自但丁的《神曲》。<\u002Fp>\n<p>如果看構圖，它其實還保留很多古典傳統。<\u002Fp>\n<p>身體有雕塑感，人物也有清楚安排。<\u002Fp>\n<p>但如果開始看顏色，就會發現不太一樣。<\u002Fp>\n<p>但丁頭上的紅色、遠方地獄的火光、水面和人體上的反光，都開始彼此作用。<\u002Fp>\n<p>所以我會把這件作品理解成：<\u002Fp>\n<p><strong>構圖還在規矩裡，但顏色已經開始不安分。<\u002Fstrong><\u002Fp>\n<hr>\n<h2><span class=\"n\">第 10 張<\u002Fspan><span class=\"t\">如果歷史裡沒有英雄呢？<\u002Fspan><span class=\"d\">0:45<\u002Fspan><\u002Fh2>\n<p class=\"sub\">《希阿島屠殺》，1824<\u002Fp>\n<p>兩年之後，他畫了《希阿島屠殺》。<\u002Fp>\n<p>背景是真實發生的希臘獨立戰爭。<\u002Fp>\n<p>可是它和傳統歷史畫有一個很大的差異：<\u002Fp>\n<p>畫面裡幾乎沒有英雄。<\u002Fp>\n<p>有老人、孩子、傷者、俘虜和失去孩子的母親。<\u002Fp>\n<p>但沒有一個人站在中央告訴我們：<\u002Fp>\n<p>「一切最後會變好。」<\u002Fp>\n<p>傳統歷史畫經常把歷史整理成英雄行動。<\u002Fp>\n<p>德拉克洛瓦卻開始畫：<\u002Fp>\n<p><strong>被歷史壓過去的人。<\u002Fstrong><\u002Fp>\n<p>而這件事很重要。<\u002Fp>\n<p>因為六年之後，他會再次畫暴力和普通人。<\u002Fp>\n<p>但是這一次，他會讓一個巨大的象徵走進他們中間。<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 11 張<\u002Fspan><span class=\"t\">先感覺，再理解<\u002Fspan><span class=\"d\">0:40<\u002Fspan><\u002Fh2>\n<p class=\"sub\">《薩達那培拉斯之死》，1827<\u002Fp>\n<p>我們再回到剛才那幅《薩達那培拉斯之死》。<\u002Fp>\n<p>它將近五公尺寬。<\u002Fp>\n<p>故事是一個即將亡國的國王，下令把自己的財寶、馬匹和後宮全部毀掉。<\u002Fp>\n<p>但我覺得最有趣的是：<\u002Fp>\n<p>即使完全不知道故事，我們還是會先被畫面影響。<\u002Fp>\n<p>首先看見巨大的紅。<\u002Fp>\n<p>再來是交疊、旋轉、扭動的身體。<\u002Fp>\n<p>我們甚至很難立刻找出一個穩定中心。<\u002Fp>\n<p>這也是德拉克洛瓦越來越清楚的一種語言：<\u002Fp>\n<p><strong>畫面不一定要等你理解故事之後，才開始作用。<\u002Fstrong><\u002Fp>\n<p>它可以先進入你的身體。<\u002Fp>\n<p>先讓你不安。<\u002Fp>\n<p>再讓你理解。<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 12 張<\u002Fspan><span class=\"t\">三天<\u002Fspan><span class=\"d\">0:45<\u002Fspan><\u002Fh2>\n<p class=\"sub\">不是 1789，而是 1830<\u002Fp>\n<p>現在我們終於回到《自由引導人民》。<\u002Fp>\n<p>它畫的不是 1789 年法國大革命。<\u002Fp>\n<p>而是 <strong>1830 年七月革命<\u002Fstrong>。<\u002Fp>\n<p>7 月 27、28、29 日，巴黎爆發街頭起義。<\u002Fp>\n<p>背景之一，是查理十世政府試圖進一步限制政治與新聞自由。<\u002Fp>\n<p>最後查理十世失去王位，由路易－菲利普建立七月王朝。<\u002Fp>\n<p>所以這幅畫最重要的一點是：<\u002Fp>\n<p>它並不是德拉克洛瓦回頭想像一個遙遠的歷史。<\u002Fp>\n<p>這是他的當代。<\u002Fp>\n<p>他自己在信裡稱它為：<\u002Fp>\n<p><strong>「一個現代題材，一座街壘。」<\u002Fstrong><\u002Fp>\n<p class=\"cue\">（翻頁）<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 13 張<\u002Fspan><span class=\"t\">讓女神走進巴黎<\u002Fspan><span class=\"d\">0:55<\u002Fspan><\u002Fh2>\n<p class=\"sub\">寓言 × 現實<\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>街頭版畫放大成《自由引導人民》，畫上的 1、2、3 依序出現。<\u002Fp>\n<p>這幅畫最特別的地方，就是德拉克洛瓦把兩種世界放進同一張畫。<\u002Fp>\n<p>中間的女性不是某一位真實的革命者。<\u002Fp>\n<p>她是「自由」的擬人化。<\u002Fp>\n<p>她戴著弗里吉亞帽，高舉三色旗，身體又帶有古典女神的理想化形式。<\u002Fp>\n<p>但她旁邊的人完全不是神話。<\u002Fp>\n<p>有市民、有工人、有年輕人。<\u002Fp>\n<p>右邊遠方甚至還看得到巴黎聖母院。<\u002Fp>\n<p>所以一邊是寓言。<\u002Fp>\n<p>一邊是非常具體的巴黎。<\u002Fp>\n<p>我覺得他真正厲害的地方不是「把普通人畫成神」。<\u002Fp>\n<p>而是：<\u002Fp>\n<p><strong>他讓一個神話性的概念，直接踩進泥土、煙霧、血和屍體裡。<\u002Fstrong><\u002Fp>\n<p>「自由」不是在畫面上方等待。<\u002Fp>\n<p>它必須穿過現實。<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 14 張<\u002Fspan><span class=\"t\">從一幅畫變成一種文化形象<\u002Fspan><span class=\"d\">0:45<\u002Fspan><\u002Fh2>\n<p class=\"sub\">Gavroche 與作品的第二生命<\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>鏡頭在同一幅畫上推近到右側的少年。<\u002Fp>\n<p>《自由引導人民》後來影響的不只是繪畫。<\u002Fp>\n<p>看自由右邊這個拿著兩把手槍的少年。<\u002Fp>\n<p>他後來常常被稱為「Gavroche」。<\u002Fp>\n<p>羅浮宮自己的教育資料也提到，這個形象被認為可能啟發了雨果《悲慘世界》中的 Gavroche。<\u002Fp>\n<p>不過年代一定要分清楚：<\u002Fp>\n<p>這幅畫是 <strong>1830 年七月革命<\u002Fstrong>。<\u002Fp>\n<p>《悲慘世界》中 Gavroche 所在的街壘，背景是 <strong>1832 年六月起義<\u002Fstrong>。<\u002Fp>\n<p>小說則到 1862 年才出版。<\u002Fp>\n<p>所以它不是《悲慘世界》的插圖。<\u002Fp>\n<p>更有意思的是：<\u002Fp>\n<p><strong>同一個十九世紀巴黎「人民走上街壘」的想像，在繪畫和文學裡不斷被重新塑造。<\u002Fstrong><\u002Fp>\n<p>作品也開始有了超過作者控制範圍之外的第二生命。<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 15 張<\u002Fspan><span class=\"t\">我真正停下來看的地方<\u002Fspan><span class=\"d\"><\u002Fspan><\u002Fh2>\n<p class=\"sub\"><strong>建議時間｜0:55<\u002Fstrong><\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>鏡頭在畫上平移到自由腳邊的人物；左側文字與右下素描同時滑入。<\u002Fp>\n<p><span class=\"p\">P<\u002Fspan>不過我自己真正仔細看這幅畫時，第一個停下來看的，其實不是自由女神。<\u002Fp>\n<p>而是她腳邊這個抬頭的人。<\u002Fp>\n<p>他的位置很低。<\u002Fp>\n<p>身體倒在地面。<\u002Fp>\n<p>可是他的視線往上。<\u002Fp>\n<p>右下角是他畫這幅畫之前的人體素描，可以看到這些姿勢都是反覆研究過的。<\u002Fp>\n<p>然後我開始發現：<\u002Fp>\n<p>德拉克洛瓦一直在讓幾個顏色彼此呼應。<\u002Fp>\n<p>最明顯的當然是三色旗的紅、白、藍。<\u002Fp>\n<p>可是紅、白、藍並沒有只存在於旗子。<\u002Fp>\n<p>它們被拆開，散落在人物的衣服、明暗和畫面不同位置。<\u002Fp>\n<p>所以我後來開始用另一種方式看這幅畫：<\u002Fp>\n<p>不只是問——<\u002Fp>\n<p><strong>「這個人物是誰？」<\u002Fstrong><\u002Fp>\n<p>還會問：<\u002Fp>\n<p><strong>「為什麼我的眼睛會走到這裡？」<\u002Fstrong><\u002Fp>\n<p>是因為故事？<\u002Fp>\n<p>是因為人物的表情？<\u002Fp>\n<p>還是其實，是畫家利用顏色、亮度、方向和構圖，把我的眼睛帶過來？<\u002Fp>\n<p>我覺得這是一個可以帶去看其他作品的方法：<\u002Fp>\n<p><strong>先觀察自己的第一反應，再回頭找作品是怎麼製造這個反應的。<\u002Fstrong><\u002Fp>\n<p>而接下來的修復，剛好讓這件事情變得更複雜。<\u002Fp>\n<p>因為——<\u002Fp>\n<p><strong>如果顏色變了，我們的觀看會不會也跟著變？<\u002Fstrong><\u002Fp>\n<hr>\n<h2><span class=\"n\">第 16 張<\u002Fspan><span class=\"t\">當時間也參與了配色<\u002Fspan><span class=\"d\">1:30<\u002Fspan><\u002Fh2>\n<p class=\"sub\">2024 修復與「感受的歷史」<\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>鏡頭移到自由的衣裙；左右是修復前與修復後。<\u002Fp>\n<p>這是我覺得整份報告最重要的一頁。<\u002Fp>\n<p>《自由引導人民》在 2023 年 10 月到 2024 年 4 月進行了六個月的修復。<\u002Fp>\n<p>主要工作之一，是處理表面長時間氧化、變黃的多層光油。<\u002Fp>\n<p>而這次修復最令人意外的發現之一，就是「自由」身上的衣服。<\u002Fp>\n<p>我們以前很容易把它理解成一件相當均勻的黃色、金黃色衣服。<\u002Fp>\n<p>但清理之後發現：<\u002Fp>\n<p>德拉克洛瓦其實先把整件衣服畫成<strong>淺灰色<\u002Fstrong>，<\u002Fp>\n<p>再在上面加入不同密度的亮黃色。<\u002Fp>\n<p>胸口附近最濃。<\u002Fp>\n<p>越往下，黃色越稀疏。<\u002Fp>\n<p>修復也移除了氧化變黃的舊光油，以及後來加上的補筆。<\u002Fp>\n<p>所以修復後，整幅畫重新出現比較明顯的<strong>冷調、灰色與更強的明暗層次<\u002Fstrong>。<\u002Fp>\n<p>這裡真正吸引我的，其實不是：<\u002Fp>\n<p>「哦，原來衣服不是黃色。」<\u002Fp>\n<p>而是另一個問題：<\u002Fp>\n<p><strong>如果人物沒有變、構圖沒有變、故事沒有變，只是顏色關係改變，為什麼我的感受會跟著改變？<\u002Fstrong><\u002Fp>\n<p><span class=\"p\">P<\u002Fspan>以前偏黃、偏暖的版本，會讓我很自然覺得：<\u002Fp>\n<p>她很明亮。<\u002Fp>\n<p>很神聖。<\u002Fp>\n<p>甚至像是「勝利本身正在發光」。<\u002Fp>\n<p>可是修復以後，當更多灰色重新出現，<\u002Fp>\n<p>她和煙霧、石塊、屍體之間的距離好像變近了。<\u002Fp>\n<p>她還是一個寓言。<\u002Fp>\n<p>但對我來說，她反而更像是：<\u002Fp>\n<p><strong>從革命的灰塵裡走出來的自由。<\u002Fstrong><\u002Fp>\n<p>這件事讓我重新理解德拉克洛瓦和浪漫主義。<\u002Fp>\n<p>因為浪漫主義最重要的一個轉變，本來就是：<\u002Fp>\n<p>藝術不只問「物體客觀上是什麼」，<\u002Fp>\n<p>也開始非常重視——<\u002Fp>\n<p><strong>它讓人感受到什麼。<\u002Fstrong><\u002Fp>\n<p>1830 年，<\u002Fp>\n<p><strong>德拉克洛瓦利用色彩影響觀者。<\u002Fstrong><\u002Fp>\n<p>接下來將近兩百年，<\u002Fp>\n<p><strong>時間又改變了這些色彩。<\u002Fstrong><\u002Fp>\n<p>於是時間也在不知不覺中，<\u002Fp>\n<p><strong>改變了後來的觀者。<\u002Fstrong><\u002Fp>\n<p>當然，光油變黃並不是德拉克洛瓦的創作意圖。<\u002Fp>\n<p>但是它意外地證明了一件很浪漫主義的事情：<\u002Fp>\n<p><strong>感受不是畫面之外的附加物。<\u002Fstrong><\u002Fp>\n<p>感受本身，就是觀看作品的一部分。<\u002Fp>\n<p>甚至可以說：<\u002Fp>\n<p>**德拉克洛瓦原本利用色彩打破形式的固定；<br>兩百年後，時間又讓他的色彩本身變得不再固定。**<\u002Fp>\n<p>所以作品有一段歷史。<\u002Fp>\n<p>而我們的感受——<\u002Fp>\n<p>其實也有一段歷史。<\u002Fp>\n<hr>\n<h2><span class=\"n\">第 17 張<\u002Fspan><span class=\"t\">他留下來的，是一種繪畫自由<\u002Fspan><span class=\"d\">0:55<\u002Fspan><\u002Fh2>\n<p class=\"sub\">從德拉克洛瓦到現代藝術<\u002Fp>\n<p><span class=\"a\">動畫<\u002Fspan>畫中人物的名字會輪流浮現兩輪，可以邊講邊指。<\u002Fp>\n<p>德拉克洛瓦在 1863 年過世。<\u002Fp>\n<p>隔年，方丹－拉圖爾畫了《向德拉克洛瓦致敬》。<\u002Fp>\n<p>畫面中央不是活著的德拉克洛瓦，而是他的肖像。<\u002Fp>\n<p>旁邊站著馬奈、惠斯勒，坐著詩人波特萊爾、評論家尚弗勒里，還有畫家自己——穿白襯衫、拿著調色盤的那一位。<\u002Fp>\n<p>這其實很有象徵性：<\u002Fp>\n<p>老一代的浪漫主義畫家過世了，<\u002Fp>\n<p>可是即將進入現代藝術的下一代，開始圍到他的周圍。<\u002Fp>\n<p>他們不一定是他的學生，但站在他的名下，是在宣示一種同樣不受成規束縛的自由。<\u002Fp>\n<p>1864 年德拉克洛瓦工作室作品公開拍賣後，藝術家們又看見大量較少曝光的風景研究。<\u002Fp>\n<p>他利用快速筆觸、分離色彩與色彩關係表現光線的方法，後來對印象派非常重要。<\u002Fp>\n<p>再往後，塞尚、梵谷、高更、馬諦斯甚至康定斯基，都曾經從他身上找到不同的方向。<\u002Fp>\n<p>塞尚在談德拉克洛瓦的《阿爾及爾的女人》時說過：<\u002Fp>\n<p><strong>「我們全都在這幅德拉克洛瓦裡。」<\u002Fstrong><\u002Fp>\n<p>所以德拉克洛瓦真正承先啟後的地方，不是他發明了某一種固定畫法。<\u002Fp>\n<p>而是他讓後來的畫家更敢相信：<\u002Fp>\n<p><strong>色彩不一定只是描述世界。<\u002Fstrong><\u002Fp>\n<p>它也可以描述：<\u002Fp>\n<p><strong>人在世界裡的感受。<\u002Fstrong><\u002Fp>\n<hr>\n<h2><span class=\"n\">第 18 張<\u002Fspan><span class=\"t\">結語<\u002Fspan><span class=\"d\">1:00<\u002Fspan><\u002Fh2>\n<p class=\"sub\">看一幅畫，我現在會多問三個問題<\u002Fp>\n<p>最後，我想回到一開始的兩個「記錯」。<\u002Fp>\n<p>我記錯了它的歷史。<\u002Fp>\n<p>它不是 1789 年，而是 1830 年。<\u002Fp>\n<p>我也記錯了它的顏色。<\u002Fp>\n<p>我們過去很熟悉的某些暖黃色調，有一部分其實來自作品後來的物質狀態與修復歷史。<\u002Fp>\n<p>但準備完這次報告以後，我反而不覺得「看錯」是一件完全負面的事。<\u002Fp>\n<p>因為它教會我：<\u002Fp>\n<p><strong>觀看藝術不是把正確答案一次找完。<\u002Fstrong><\u002Fp>\n<p>我現在反而會先問三個問題。<\u002Fp>\n<h3>第一：<\u002Fh3>\n<p><strong>我第一眼看見了什麼？<\u002Fstrong><\u002Fp>\n<p>不要急著查答案。先注意自己的感受：我被哪個人物、哪個顏色、哪一塊光吸引？<\u002Fp>\n<h3>第二：<\u002Fh3>\n<p><strong>作品怎麼讓我產生這種感受？<\u002Fstrong><\u002Fp>\n<p>是構圖？色彩？筆觸？明暗？還是某一個反覆出現的視覺元素？<\u002Fp>\n<h3>第三：<\u002Fh3>\n<p><strong>我現在看到的，一直都是這個樣子嗎？<\u002Fstrong><\u002Fp>\n<p>顏料有沒有褪色？光油有沒有變黃？<\u002Fp>\n<p>甚至——今天的我，和兩百年前的觀眾，是不是帶著完全不同的歷史經驗在看它？<\u002Fp>\n<p>這三個問題讓我覺得：<\u002Fp>\n<p>美術史真正有趣的，不只是記住作品是哪一年完成。<\u002Fp>\n<p>而是理解——<\u002Fp>\n<p><strong>作品有自己的歷史，觀看也有自己的歷史。<\u002Fstrong><\u002Fp>\n<p><span class=\"p\">P<\u002Fspan>我還是記得第一次看到《自由引導人民》時，那種明亮、振奮和壯觀。<\u002Fp>\n<p>只是現在我知道，<\u002Fp>\n<p>那份感受裡面，<\u002Fp>\n<p>有 1830 年的革命，<\u002Fp>\n<p>有德拉克洛瓦的色彩，<\u002Fp>\n<p>有將近兩百年的物質變化，<\u002Fp>\n<p>也有我自己的觀看經驗。<\u002Fp>\n<p>如果浪漫主義相信，<\u002Fp>\n<p>藝術不只存在於題材和規則裡，<\u002Fp>\n<p>也存在於人的感受裡，<\u002Fp>\n<p>那麼《自由引導人民》兩百年來的變化，剛好提醒了我：<\u002Fp>\n<p>**作品會經過時間，<br>而觀看，也會經過時間。**<\u002Fp>\n<p>所以當修復師重新清理那些變色的表層時，<\u002Fp>\n<p>我們重新看見的不只是一幅畫原本的顏色。<\u002Fp>\n<p>我們也重新意識到——<\u002Fp>\n<p><strong>自己究竟是怎麼看一幅畫的。<\u002Fstrong><\u002Fp>\n<p class=\"cue\">（停在這一頁，不說「謝謝聆聽」。第 19–20 張為資料與圖片來源，不需翻到。）<\u002Fp><\u002Fmain><\u002Fbody><\u002Fhtml>"
+  </script>
+</body>
+</html>
